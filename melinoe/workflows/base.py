@@ -16,6 +16,7 @@ class Step(ABC):
         if not hasattr(self, "model_config") or not self.model_config:
             raise ValueError("ModelConfig is required for Step initialization.")
 
+    @abstractmethod
     def validate(self, *args, **kwargs) -> None:
         """
         Validate the input arguments for the step. This method should be overridden by subclasses to implement specific validation logic.
