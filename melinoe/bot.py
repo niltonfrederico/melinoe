@@ -1,5 +1,6 @@
 import asyncio
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -48,7 +49,16 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     try:
         await tg_file.download_to_drive(tmp_path)
-        result = await asyncio.to_thread(_run_workflow, tmp_path)
+        loop = asyncio.get_running_loop()
+
+        async def _send_progress(text: str) -> None:
+            if update.message is not None:
+                await update.message.reply_text(text)
+
+        def on_progress(text: str) -> None:
+            asyncio.run_coroutine_threadsafe(_send_progress(text), loop)
+
+        result = await asyncio.to_thread(_run_workflow, tmp_path, on_progress)
         reply = _format_result(result)
     except NotABookCoverError:
         reply = (
@@ -64,8 +74,13 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.message.reply_text(reply)
 
 
-def _run_workflow(file_path: Path) -> dict[str, Any]:
-    return BookwormWorkflow().run(file_path)
+def _run_workflow(
+    file_path: Path,
+    on_progress: Callable[[str], None] | None = None,
+) -> dict[str, Any]:
+    wf = BookwormWorkflow()
+    wf.on_progress = on_progress
+    return wf.run(file_path)
 
 
 def _format_result(result: dict[str, Any]) -> str:

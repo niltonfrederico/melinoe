@@ -22,6 +22,7 @@ from melinoe.workflows.skills.write_memory import WriteMemorySkill
 class NotABookCoverError(Exception):
     """Raised when the image does not contain a legible book cover."""
 
+
 _OUTPUT_DIR = Path(__file__).parent.parent.parent / "output"
 
 
@@ -53,11 +54,13 @@ class BookwormWorkflow(Workflow):
         file_path = Path(file_path)
         workflow_log.info(f"BookwormWorkflow → {file_path.name}")
 
+        self._emit("Verificando se é uma capa de livro...")
         check = self._hecate.run(file_path)
         if not check.is_book_cover or not check.is_legible:
             workflow_log.info(f"Hecate rejected image — {check.reason}")
             raise NotABookCoverError(check.reason)
 
+        self._emit("Analisando a capa do livro...")
         cover = self._cover_analyzer.run(file_path)
 
         if not cover.title:
@@ -67,6 +70,7 @@ class BookwormWorkflow(Workflow):
             f"Cover identified: title={cover.title!r}, author={cover.author!r}, confidence={cover.confidence}"
         )
 
+        self._emit("Consultando minhas memórias...")
         memories = self._load_memory.run(title=cover.title, author=cover.author)
 
         if memories.relevant_keys:
@@ -75,6 +79,7 @@ class BookwormWorkflow(Workflow):
         else:
             workflow_log.info("No relevant memories found")
 
+        self._emit("Buscando informações sobre o livro...")
         metadata = self._book_lookup.run(
             title=cover.title,
             author=cover.author,
@@ -92,6 +97,7 @@ class BookwormWorkflow(Workflow):
             "notes": memories.context or None,
         }
 
+        self._emit("Registrando na memória...")
         self._write_memory.run(report=result)
 
         output_path = self._write_output(result, cover.title, cover.author)

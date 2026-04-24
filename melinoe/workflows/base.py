@@ -3,6 +3,7 @@ import tempfile
 import time
 from abc import ABC
 from abc import abstractmethod
+from collections.abc import Callable
 from pathlib import Path
 
 from melinoe.client import ModelConfig
@@ -84,8 +85,13 @@ class Workflow(ABC):
     agent: str
     steps: list[Step]
 
-    def __init__(self):
+    def __init__(self) -> None:
+        self.on_progress: Callable[[str], None] | None = None
         self.validate_init()
+
+    def _emit(self, message: str) -> None:
+        if self.on_progress is not None:
+            self.on_progress(message)
 
     def validate_init(self) -> None:
         if not hasattr(self, "agent") or not self.agent:
