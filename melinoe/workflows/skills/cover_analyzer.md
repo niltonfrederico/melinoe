@@ -45,3 +45,4 @@ Return a single JSON object with the following fields. Use `null` for any field 
 - Do not infer information not visible in the image.
 - If the image is unclear, blurry, or not a book cover, set `"confidence": "low"` and populate only the fields you can determine.
 - Do not return markdown formatting around the JSON — raw JSON only.
+- All descriptive text fields (`genre`, `design_style`, `mood`, `target_audience`, `visual_elements`, `hierarchy_notes`) must be written in Brazilian Portuguese (pt-BR).

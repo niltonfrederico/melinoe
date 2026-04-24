@@ -1,4 +1,5 @@
 import json
+import re
 import urllib.parse
 from dataclasses import dataclass
 from typing import Any
@@ -16,6 +17,15 @@ _DEFINITION = load_skill("book_lookup")
 _HEADERS = {"User-Agent": "melinoe-bookworm/0.1 (niltonfrederico@pm.me)"}
 _TIMEOUT = 10.0
 
+_SPECIAL_CONTENT_TYPES = {"quadrinhos", "antologia", "premiação", "obra_independente"}
+
+_SPECIAL_TITLE_KEYWORDS = re.compile(
+    r"\b(premiação|premia[çc][aã]o|jogos florais|antologia|coletânea|coletanea"
+    r"|anthology|compilation|award|hq|manga|quadrinhos|comic|graphic novel"
+    r"|obra independente)\b",
+    re.IGNORECASE,
+)
+
 
 @dataclass
 class BookMetadata:
@@ -31,6 +41,8 @@ class BookMetadata:
     genres: list[str]
     ratings: dict[str, Any]
     awards: list[str]
+    origin: str | None
+    content_type: str
     source: str
     confidence: str
 
@@ -53,7 +65,17 @@ class BookLookupSkill(Step):
         sources["estante_virtual"] = self._fetch_estante_virtual(title, author)
         sources["skoob"] = self._fetch_skoob(title, author)
 
+        if self._looks_like_special_case(title):
+            sources["web_search"] = self._fetch_web_search(title, author)
+        else:
+            sources["web_search"] = None
+
         return self._synthesize(title, author, sources, memory_context=memory_context)
+
+    # --- special case detection ---
+
+    def _looks_like_special_case(self, title: str) -> bool:
+        return bool(_SPECIAL_TITLE_KEYWORDS.search(title))
 
     # --- fetchers ---
 
@@ -110,6 +132,19 @@ class BookLookupSkill(Step):
         result = self._get(url)
         return result if isinstance(result, str) else None
 
+    def _fetch_web_search(self, title: str, author: str | None) -> str | None:
+        query = f"{title} {author}" if author else title
+        params = {"q": query, "kl": "br-pt"}
+        url = f"https://html.duckduckgo.com/html/?{urllib.parse.urlencode(params)}"
+        headers = {**_HEADERS, "Accept-Language": "pt-BR,pt;q=0.9"}
+        try:
+            with httpx.Client(headers=headers, timeout=_TIMEOUT, follow_redirects=True) as client:
+                resp = client.post(url, data=params)
+                resp.raise_for_status()
+                return resp.text
+        except Exception:
+            return None
+
     # --- synthesis via Gemini ---
 
     def _synthesize(
@@ -119,6 +154,7 @@ class BookLookupSkill(Step):
         gb = sources.get("google_books") or {}
         ev_html = sources.get("estante_virtual")
         sk_html = sources.get("skoob")
+        web_html = sources.get("web_search")
 
         context_parts = [
             f"Title: {title}",
@@ -136,6 +172,13 @@ class BookLookupSkill(Step):
             "## Skoob (HTML excerpt)",
             (sk_html or "No results.")[:3000],
         ]
+
+        if web_html:
+            context_parts += [
+                "",
+                "## Web Search / DuckDuckGo (HTML excerpt)",
+                web_html[:3000],
+            ]
 
         if memory_context:
             context_parts += ["", "## Prior Memory Context", memory_context[:2000]]
@@ -171,6 +214,8 @@ class BookLookupSkill(Step):
                 genres=[],
                 ratings={},
                 awards=[],
+                origin=None,
+                content_type="livro",
                 source="none",
                 confidence="low",
             )
@@ -188,6 +233,8 @@ class BookLookupSkill(Step):
             genres=data.get("genres") or [],
             ratings=data.get("ratings") or {},
             awards=data.get("awards") or [],
+            origin=data.get("origin"),
+            content_type=data.get("content_type") or "livro",
             source=data.get("source", "none"),
             confidence=data.get("confidence", "low"),
         )

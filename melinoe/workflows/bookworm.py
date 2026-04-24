@@ -1,5 +1,7 @@
 import json
+import re
 from dataclasses import asdict
+from dataclasses import replace as dc_replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -7,6 +9,7 @@ from typing import Any
 from melinoe.logger import workflow_log
 from melinoe.workflows.base import Step
 from melinoe.workflows.base import Workflow
+from melinoe.workflows.skills.book_lookup import BookMetadata
 from melinoe.workflows.skills.book_lookup import BookLookupSkill
 from melinoe.workflows.skills.cover_analyzer import CoverAnalyzerSkill
 from melinoe.workflows.skills.load_relevant_memory import LoadRelevantMemorySkill
@@ -68,6 +71,8 @@ class BookwormWorkflow(Workflow):
 
         workflow_log.info(f"Metadata fetched: confidence={metadata.confidence}")
 
+        metadata = self._enrich_compilation_title(metadata, cover.subtitle)
+
         result: dict[str, Any] = {
             "cover_analysis": asdict(cover),
             "bibliographic_metadata": asdict(metadata),
@@ -92,6 +97,42 @@ class BookwormWorkflow(Workflow):
         output_path = _OUTPUT_DIR / filename
         output_path.write_text(json.dumps(result, indent=2, ensure_ascii=False))
         return output_path
+
+    _YEAR_IN_TITLE = re.compile(r"\b(19|20)\d{2}\b")
+    _EDITION_IN_TITLE = re.compile(r"\b\d+[aª°]?\s*(ed(i[çc][aã]o)?|edition)\b", re.IGNORECASE)
+    _ORDINAL_IN_TITLE = re.compile(r"\b\d+[aª°]\b")
+    _COMPILATION_TYPES = {"antologia", "premiação"}
+
+    def _enrich_compilation_title(self, metadata: BookMetadata, subtitle: str | None) -> BookMetadata:
+        if metadata.content_type not in self._COMPILATION_TYPES:
+            return metadata
+
+        title = metadata.title
+        already_has_marker = (
+            self._YEAR_IN_TITLE.search(title)
+            or self._EDITION_IN_TITLE.search(title)
+            or self._ORDINAL_IN_TITLE.search(title)
+        )
+        if already_has_marker:
+            return metadata
+
+        # Try to extract edition/year from subtitle first, then fall back to publication_year
+        marker: str | None = None
+        if subtitle:
+            year_match = self._YEAR_IN_TITLE.search(subtitle)
+            edition_match = self._EDITION_IN_TITLE.search(subtitle) or self._ORDINAL_IN_TITLE.search(subtitle)
+            if edition_match:
+                marker = edition_match.group(0).strip()
+            elif year_match:
+                marker = year_match.group(0)
+
+        if not marker and metadata.publication_year:
+            marker = str(metadata.publication_year)
+
+        if not marker:
+            return metadata
+
+        return dc_replace(metadata, title=f"{title} — {marker}")
 
     def _merged_confidence(self, cover_conf: str, meta_conf: str) -> str:
         order = {"high": 2, "medium": 1, "low": 0}

@@ -52,6 +52,7 @@ def _make_logger(name: str) -> logging.Logger:
 workflow_log = _make_logger("workflow")
 step_log = _make_logger("step")
 llm_log = _make_logger("llm")
+bot_log = _make_logger("bot")
 
 
 @contextmanager

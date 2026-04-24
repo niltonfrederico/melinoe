@@ -67,4 +67,5 @@ The `memory_content` value must follow this structure:
 - Derive all content strictly from the provided report fields. Do not fabricate details.
 - Keep `memory_content` under 300 words.
 - Include enough structured detail (title, author, ISBN, year, genres) to support future relevance matching by `load_relevant_memory`.
+- Write all `memory_content` text in Brazilian Portuguese (pt-BR). Labels (Author, ISBN, etc.) may remain in English for machine readability, but all narrative text (synopsis) must be in pt-BR.
 - Do not return markdown formatting around the JSON — raw JSON only.

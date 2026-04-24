@@ -467,6 +467,25 @@ files = [
 ]
 
 [[package]]
+name = "environs"
+version = "15.0.1"
+description = "simplified environment variable parsing"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "environs-15.0.1-py3-none-any.whl", hash = "sha256:a6aeb3e18d5649a4e74f62984f0d84ec869269cff588a43685272c72b5b8979b"},
+    {file = "environs-15.0.1.tar.gz", hash = "sha256:638106bfb5d8c9a13ee51c23a9f2416baf9a748c8e537fec771102927cd02aa8"},
+]
+
+[package.dependencies]
+marshmallow = ">=4.0.0"
+python-dotenv = "*"
+
+[package.extras]
+django = ["dj-database-url", "dj-email-url", "django-cache-url"]
+
+[[package]]
 name = "executing"
 version = "2.2.1"
 description = "Get the currently executing AST node of a frame, and other information"
@@ -1357,6 +1376,18 @@ files = [
 ]
 
 [[package]]
+name = "marshmallow"
+version = "4.3.0"
+description = "A lightweight library for converting complex datatypes to and from native Python datatypes."
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "marshmallow-4.3.0-py3-none-any.whl", hash = "sha256:46c4fe6984707e3cbd485dfebbf0a59874f58d695aad05c1668d15e8c6e13b46"},
+    {file = "marshmallow-4.3.0.tar.gz", hash = "sha256:fb43c53b3fe240b8f6af37223d6ef1636f927ad9bea8ab323afad95dff090880"},
+]
+
+[[package]]
 name = "matplotlib-inline"
 version = "0.2.1"
 description = "Inline Matplotlib backend for Jupyter"
@@ -2037,6 +2068,32 @@ files = [
 
 [package.extras]
 cli = ["click (>=5.0)"]
+
+[[package]]
+name = "python-telegram-bot"
+version = "22.7"
+description = "We have made you a wrapper you can't refuse"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "python_telegram_bot-22.7-py3-none-any.whl", hash = "sha256:d72eed532cf763758cd9331b57a6d790aff0bb4d37d8f4e92149436fe21c6475"},
+    {file = "python_telegram_bot-22.7.tar.gz", hash = "sha256:784b59ea3852fe4616ad63b4a0264c755637f5d725e87755ecdee28300febf61"},
+]
+
+[package.dependencies]
+httpx = ">=0.27,<0.29"
+
+[package.extras]
+all = ["aiolimiter (>=1.1,<1.3)", "apscheduler (>=3.10.4,<3.12.0)", "cachetools (>=7.0.0,<8.0.0)", "cffi (>=1.17.0rc1) ; python_version > \"3.12\"", "cryptography (>=39.0.1)", "httpx[http2]", "httpx[socks]", "tornado (>=6.5,<7.0)"]
+callback-data = ["cachetools (>=7.0.0,<8.0.0)"]
+ext = ["aiolimiter (>=1.1,<1.3)", "apscheduler (>=3.10.4,<3.12.0)", "cachetools (>=7.0.0,<8.0.0)", "tornado (>=6.5,<7.0)"]
+http2 = ["httpx[http2]"]
+job-queue = ["apscheduler (>=3.10.4,<3.12.0)"]
+passport = ["cffi (>=1.17.0rc1) ; python_version > \"3.12\"", "cryptography (>=39.0.1)"]
+rate-limiter = ["aiolimiter (>=1.1,<1.3)"]
+socks = ["httpx[socks]"]
+webhooks = ["tornado (>=6.5,<7.0)"]
 
 [[package]]
 name = "pyyaml"
@@ -2939,4 +2996,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13,<3.14"
-content-hash = "ad54dfd57ff281ac81f7d2ea4ea7142e1a4b03bc331aeec3662762213980fc1b"
+content-hash = "6752924a6c1bfc377f9f7b3d070ad0ce3fc1cf99391687f260ff2a2325a6a4b6"
