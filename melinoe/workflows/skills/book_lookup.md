@@ -17,6 +17,15 @@ A JSON object with:
 
 Both fields are required. If either is missing or empty, return an error JSON (see Output).
 
+Multi-source raw data may be provided for synthesis. Recognized sources:
+
+- **Open Library** (openlibrary.org) — JSON API response
+- **Google Books** (books.googleapis.com) — JSON API response
+- **Estante Virtual** (estantevirtual.com.br) — HTML excerpt parsed from page HTML
+- **Skoob** (skoob.com.br, Brazilian Goodreads equivalent) — HTML excerpt parsed from page HTML
+
+When Estante Virtual or Skoob data is present, it arrives as raw HTML excerpts. Extract fields from the markup directly. Portuguese-language fields — including synopsis, publisher name, and genres sourced from these Brazilian sources — are valid and must be preserved as-is without translation.
+
 ## Output
 
 On success, return a single JSON object:
