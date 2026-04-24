@@ -1,15 +1,13 @@
----
-name: cover_analyzer
-type: skill
-model: GEMINI_FLASH
-description: Analyzes a book cover image and extracts structured visual and contextual data as JSON.
----
+______________________________________________________________________
+
+## name: cover_analyzer type: skill model: GEMINI_FLASH description: Analyzes a book cover image and extracts structured visual and contextual data as JSON.
 
 Analyze the provided book cover image and extract all identifiable information. Return structured JSON only — no prose, no explanation.
 
 ## Input
 
 A book cover image provided as either:
+
 - A publicly accessible URL string
 - A base64-encoded image string
 

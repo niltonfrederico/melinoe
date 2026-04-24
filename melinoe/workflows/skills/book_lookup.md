@@ -1,9 +1,6 @@
----
-name: book_lookup
-type: skill
-model: GEMINI_FLASH
-description: Given a book title and author, retrieves bibliographic metadata from Open Library or Google Books and returns it as structured JSON.
----
+______________________________________________________________________
+
+## name: book_lookup type: skill model: GEMINI_FLASH description: Given a book title and author, retrieves bibliographic metadata from Open Library or Google Books and returns it as structured JSON.
 
 Look up bibliographic metadata for the given book using Open Library (openlibrary.org) or Google Books (books.googleapis.com). Return structured JSON only — no prose, no explanation.
 
