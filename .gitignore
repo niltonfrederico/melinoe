@@ -226,3 +226,6 @@ output/*
 
 input/*
 !input/.gitkeep
+
+.keys/*
+!.keys/.gitkeep
