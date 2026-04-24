@@ -223,3 +223,6 @@ melinoe/workflows/memories/*
 !melinoe/workflows/memories/.gitkeep
 output/*
 !output/.gitkeep
+
+input/*
+!input/.gitkeep
