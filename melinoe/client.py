@@ -1,10 +1,13 @@
 import base64
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import litellm
+
+from melinoe.logger import llm_log
 
 
 @dataclass(frozen=True)
@@ -60,7 +63,14 @@ def complete(
     }
     if config.api_base is not None:
         call_kwargs["api_base"] = config.api_base
-    return litellm.completion(**call_kwargs)
+    llm_log.info(f"Calling {config.model}...")
+    start = time.perf_counter()
+    response = litellm.completion(**call_kwargs)
+    elapsed = time.perf_counter() - start
+    usage = getattr(response, "usage", None)
+    tokens = f"{usage.total_tokens} tokens" if usage else "usage unavailable"
+    llm_log.info(f"{config.model} responded in {elapsed:.2f}s ({tokens})")
+    return response
 
 
 @dataclass(frozen=True)

@@ -1,10 +1,12 @@
 import os
 import tempfile
+import time
 from abc import ABC
 from abc import abstractmethod
 from pathlib import Path
 
 from melinoe.client import ModelConfig
+from melinoe.logger import step_log
 
 _MEMORY_DIR = Path(__file__).parent / "memories"
 
@@ -63,8 +65,19 @@ class Step(ABC):
         pass
 
     def run(self, *args, **kwargs):
-        self.validate(*args, **kwargs)
-        return self.execute(*args, **kwargs)
+        name = type(self).__name__
+        step_log.info(f"{name} starting...")
+        start = time.perf_counter()
+        try:
+            self.validate(*args, **kwargs)
+            result = self.execute(*args, **kwargs)
+        except Exception as exc:
+            elapsed = time.perf_counter() - start
+            step_log.error(f"{name} failed after {elapsed:.2f}s — {exc}")
+            raise
+        elapsed = time.perf_counter() - start
+        step_log.info(f"{name} done ({elapsed:.2f}s)")
+        return result
 
 
 class Workflow(ABC):

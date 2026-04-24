@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from melinoe.logger import workflow_log
 from melinoe.workflows.base import Step
 from melinoe.workflows.base import Workflow
 from melinoe.workflows.skills.book_lookup import BookLookupSkill
@@ -40,24 +41,33 @@ class BookwormWorkflow(Workflow):
 
     def run(self, file_path: Path | str) -> dict[str, Any]:
         file_path = Path(file_path)
+        workflow_log.info(f"BookwormWorkflow → {file_path.name}")
 
-        # Step 1: Analyze book cover
         cover = self._cover_analyzer.run(file_path)
 
         if not cover.title:
             raise ValueError(f"Could not extract book title from cover: {file_path.name}")
 
-        # Step 2: Load relevant memories for context
+        workflow_log.info(
+            f"Cover identified: title={cover.title!r}, author={cover.author!r}, confidence={cover.confidence}"
+        )
+
         memories = self._load_memory.run(title=cover.title, author=cover.author)
 
-        # Step 3: Web lookup (pass memory context as extra hint)
+        if memories.relevant_keys:
+            count = len(memories.relevant_keys)
+            workflow_log.info(f"Memories loaded: {count} relevant entr{'y' if count == 1 else 'ies'}")
+        else:
+            workflow_log.info("No relevant memories found")
+
         metadata = self._book_lookup.run(
             title=cover.title,
             author=cover.author,
             memory_context=memories.context or None,
         )
 
-        # Step 4: Build result
+        workflow_log.info(f"Metadata fetched: confidence={metadata.confidence}")
+
         result: dict[str, Any] = {
             "cover_analysis": asdict(cover),
             "bibliographic_metadata": asdict(metadata),
@@ -65,13 +75,12 @@ class BookwormWorkflow(Workflow):
             "notes": memories.context or None,
         }
 
-        # Step 5: Write memory
         self._write_memory.run(report=result)
 
-        # Step 6: Write output file
         output_path = self._write_output(result, cover.title, cover.author)
         result["output_file"] = str(output_path)
 
+        workflow_log.info(f"Output saved → {output_path}")
         return result
 
     def _write_output(self, result: dict[str, Any], title: str, author: str | None) -> Path:
