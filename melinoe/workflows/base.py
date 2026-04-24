@@ -1,6 +1,7 @@
-from typing import override
+from abc import ABC
+from abc import abstractmethod
+
 from melinoe.client import ModelConfig
-from abc import ABC, abstractmethod
 
 
 class Step(ABC):
@@ -11,7 +12,8 @@ class Step(ABC):
 
     def validate_init(self) -> None:
         """
-        Validate that the Step has a ModelConfig attribute. This is required for any Step to function properly.
+        Validate that the Step has a ModelConfig attribute. This is required
+        for any Step to function properly.
         """
         if not hasattr(self, "model_config") or not self.model_config:
             raise ValueError("ModelConfig is required for Step initialization.")
@@ -19,14 +21,16 @@ class Step(ABC):
     @abstractmethod
     def validate(self, *args, **kwargs) -> None:
         """
-        Validate the input arguments for the step. This method should be overridden by subclasses to implement specific validation logic.
+        Validate the input arguments for the step. This method should be
+        overridden by subclasses to implement specific validation logic.
         """
         pass
 
     @abstractmethod
     def execute(self, *args, **kwargs):
         """
-        Execute the step's main logic. This method must be implemented by subclasses to define the specific behavior of the step.
+        Execute the step's main logic. This method must be implemented by
+        subclasses to define the specific behavior of the step.
         """
         pass
 
