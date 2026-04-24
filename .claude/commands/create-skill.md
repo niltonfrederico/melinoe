@@ -1,14 +1,15 @@
-Use the hecate sub-agent to create a new Skill for this project.
+# Create Skill
+
+Use the hecate sub-agent to create a new Skill definition for this project.
 
 Arguments: $ARGUMENTS
 
-A Skill is a `Step` subclass in `melinoe/workflows/skills/`. It does exactly one focused thing — parse input, call an LLM, transform data — and is reusable across multiple agents.
+A Skill is a focused, single-purpose `.md` file in `melinoe/workflows/skills/`. It defines a system prompt scoped to one task (extract, classify, transform, etc.) along with its expected input/output format and the litellm model preset to use.
 
 Ask hecate to:
 
-1. Derive a snake_case filename and PascalCase class name from the arguments
-1. Infer the skill's purpose and the right `ModelConfig` preset from the description
-1. Create `melinoe/workflows/skills/{name}.py` with a complete `Step` subclass
-1. Update `melinoe/workflows/skills/__init__.py` to export the new class
+1. Derive a snake_case filename from the arguments
+1. Infer the skill's purpose, input/output contract, and appropriate model preset from the description
+1. Create `melinoe/workflows/skills/{name}.md` with correct frontmatter and body
 
-If no description is provided alongside the name, ask the user what the skill should do before generating code.
+If no description is provided alongside the name, ask the user what the skill should do before generating the file.

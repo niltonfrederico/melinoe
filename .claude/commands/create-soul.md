@@ -1,3 +1,5 @@
+# Create Soul
+
 Use the hecate sub-agent to create a new Soul for this project.
 
 Arguments: $ARGUMENTS
