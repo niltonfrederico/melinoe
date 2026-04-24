@@ -13,6 +13,7 @@ from telegram.ext import filters
 from melinoe.logger import bot_log
 from melinoe.settings import TELEGRAM_BOT_TOKEN
 from melinoe.workflows.bookworm import BookwormWorkflow
+from melinoe.workflows.bookworm import NotABookCoverError
 
 
 async def start(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -49,6 +50,11 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await tg_file.download_to_drive(tmp_path)
         result = await asyncio.to_thread(_run_workflow, tmp_path)
         reply = _format_result(result)
+    except NotABookCoverError:
+        reply = (
+            "Hmm, não consegui identificar uma capa de livro nessa foto. "
+            "Pode enviar uma imagem mais direta da capa frontal, bem iluminada e sem muito desfoque?"
+        )
     except Exception as exc:
         bot_log.error(f"BookwormWorkflow failed — {exc}")
         reply = "Desculpe, não consegui identificar o livro. Por favor, tente com uma foto mais nítida."

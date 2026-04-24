@@ -12,10 +12,15 @@ from melinoe.workflows.base import Workflow
 from melinoe.workflows.skills.book_lookup import BookMetadata
 from melinoe.workflows.skills.book_lookup import BookLookupSkill
 from melinoe.workflows.skills.cover_analyzer import CoverAnalyzerSkill
+from melinoe.workflows.skills.hecate import HecateSkill
 from melinoe.workflows.skills.load_relevant_memory import LoadRelevantMemorySkill
 from melinoe.workflows.skills.loader import load_agent
 from melinoe.workflows.skills.loader import load_soul
 from melinoe.workflows.skills.write_memory import WriteMemorySkill
+
+
+class NotABookCoverError(Exception):
+    """Raised when the image does not contain a legible book cover."""
 
 _OUTPUT_DIR = Path(__file__).parent.parent.parent / "output"
 
@@ -26,11 +31,13 @@ class BookwormWorkflow(Workflow):
     def __init__(self) -> None:
         self._agent_def = load_agent("bookworm")
         self._soul_def = load_soul("bibliophile")
+        self._hecate = HecateSkill()
         self._load_memory = LoadRelevantMemorySkill()
         self._cover_analyzer = CoverAnalyzerSkill()
         self._book_lookup = BookLookupSkill()
         self._write_memory = WriteMemorySkill()
         self.steps: list[Step] = [
+            self._hecate,
             self._load_memory,
             self._cover_analyzer,
             self._book_lookup,
@@ -45,6 +52,11 @@ class BookwormWorkflow(Workflow):
     def run(self, file_path: Path | str) -> dict[str, Any]:
         file_path = Path(file_path)
         workflow_log.info(f"BookwormWorkflow → {file_path.name}")
+
+        check = self._hecate.run(file_path)
+        if not check.is_book_cover or not check.is_legible:
+            workflow_log.info(f"Hecate rejected image — {check.reason}")
+            raise NotABookCoverError(check.reason)
 
         cover = self._cover_analyzer.run(file_path)
 
