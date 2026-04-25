@@ -134,7 +134,7 @@ class KardoNavalhaWorkflow(Workflow):
         result["output_dir"] = str(output_dir)
 
         self._emit("Enfileirando pesquisa do Senhor das Horas Mortas...")
-        self._enqueue_scraping(result)
+        self._enqueue_scraping()
 
         workflow_log.info("Output saved → %s", output_dir)
         return result
@@ -277,7 +277,7 @@ class KardoNavalhaWorkflow(Workflow):
                 return v
         return None
 
-    def _enqueue_scraping(self, result: dict[str, Any]) -> None:
+    def _enqueue_scraping(self) -> None:
         """Fire-and-forget: enqueue a scraping task triggered by this new cataloged work."""
         try:
             asyncio.get_event_loop().run_until_complete(enqueue_scrape_task())

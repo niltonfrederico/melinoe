@@ -21,6 +21,8 @@ _TIMEOUT = 10.0
 
 _SPECIAL_CONTENT_TYPES = {"quadrinhos", "antologia", "premiação", "obra_independente"}
 
+_NO_RESULTS = "No results."
+
 _SPECIAL_TITLE_KEYWORDS = re.compile(
     r"\b(premiação|premia[çc][aã]o|jogos florais|antologia|coletânea|coletanea"
     r"|anthology|compilation|award|hq|manga|quadrinhos|comic|graphic novel"
@@ -156,70 +158,51 @@ class BookLookupSkill(Step):
         except Exception:
             return None
 
-    # --- synthesis via LLM ---
-
-    def _synthesize(
+    def _build_synthesis_context(
         self,
         title: str,
         author: str | None,
         sources: dict[str, Any],
-        memory_context: str | None = None,
-        title_page_data: dict[str, Any] | None = None,
-    ) -> BookMetadata:
+        memory_context: str | None,
+        title_page_data: dict[str, Any] | None,
+    ) -> list[str]:
         ol = sources.get("open_library") or {}
         gb = sources.get("google_books") or {}
         ev_html = sources.get("estante_virtual")
         sk_html = sources.get("skoob")
         web_html = sources.get("web_search")
 
-        context_parts = [
+        parts = [
             f"Title: {title}",
             f"Author: {author or 'unknown'}",
             "",
             "## Open Library",
-            json.dumps(ol, ensure_ascii=False)[:2000] if ol else "No results.",
+            json.dumps(ol, ensure_ascii=False)[:2000] if ol else _NO_RESULTS,
             "",
             "## Google Books",
-            json.dumps(gb, ensure_ascii=False)[:2000] if gb else "No results.",
+            json.dumps(gb, ensure_ascii=False)[:2000] if gb else _NO_RESULTS,
             "",
             "## Estante Virtual (HTML excerpt)",
-            (ev_html or "No results.")[:3000],
+            (ev_html or _NO_RESULTS)[:3000],
             "",
             "## Skoob (HTML excerpt)",
-            (sk_html or "No results.")[:3000],
+            (sk_html or _NO_RESULTS)[:3000],
         ]
 
         if web_html:
-            context_parts += [
-                "",
-                "## Web Search / DuckDuckGo (HTML excerpt)",
-                web_html[:3000],
-            ]
-
+            parts += ["", "## Web Search / DuckDuckGo (HTML excerpt)", web_html[:3000]]
         if title_page_data:
-            context_parts += [
+            parts += [
                 "",
                 "## Title Page / Folha de Rosto (structured JSON)",
                 json.dumps(title_page_data, ensure_ascii=False),
             ]
-
         if memory_context:
-            context_parts += ["", "## Prior Memory Context", memory_context[:2000]]
+            parts += ["", "## Prior Memory Context", memory_context[:2000]]
 
-        prompt = "\n".join(context_parts)
-        messages: list[dict[str, Any]] = [
-            {"role": "system", "content": _DEFINITION.system_prompt},
-            {
-                "role": "user",
-                "content": f"Synthesize the following multi-source data into the required JSON structure:\n\n{prompt}",
-            },
-        ]
+        return parts
 
-        try:
-            data = complete_json(self.model_config, messages)
-        except (ValueError, Exception):
-            data = {}
-
+    def _parse_metadata_response(self, data: dict[str, Any], title: str, author: str | None) -> BookMetadata:
         if "error" in data:
             return BookMetadata(
                 title=title,
@@ -239,7 +222,6 @@ class BookLookupSkill(Step):
                 source="none",
                 confidence="low",
             )
-
         return BookMetadata(
             title=data.get("title") or title,
             author=data.get("author") or author,
@@ -258,3 +240,30 @@ class BookLookupSkill(Step):
             source=data.get("source", "none"),
             confidence=data.get("confidence", "low"),
         )
+
+    # --- synthesis via LLM ---
+
+    def _synthesize(
+        self,
+        title: str,
+        author: str | None,
+        sources: dict[str, Any],
+        memory_context: str | None = None,
+        title_page_data: dict[str, Any] | None = None,
+    ) -> BookMetadata:
+        context_parts = self._build_synthesis_context(title, author, sources, memory_context, title_page_data)
+        prompt = "\n".join(context_parts)
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": _DEFINITION.system_prompt},
+            {
+                "role": "user",
+                "content": f"Synthesize the following multi-source data into the required JSON structure:\n\n{prompt}",
+            },
+        ]
+
+        try:
+            data = complete_json(self.model_config, messages)
+        except Exception:
+            data = {}
+
+        return self._parse_metadata_response(data, title, author)

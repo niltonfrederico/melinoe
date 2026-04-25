@@ -37,6 +37,7 @@ class LoadScrapingStateSkill(Step):
     skills: ClassVar[list[str]] = ["load_scraping_state"]
 
     def validate(self, **kwargs: Any) -> None:
+        # No validation required — this skill loads state from disk and accepts no inputs
         pass
 
     def execute(self, **kwargs: Any) -> ScrapingState:

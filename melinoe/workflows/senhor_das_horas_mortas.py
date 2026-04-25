@@ -13,9 +13,11 @@ from melinoe.workflows.base import Workflow
 from melinoe.workflows.kardo_navalha import KardoNavalhaWorkflow
 from melinoe.workflows.kardo_navalha import ProfessorWorkAlreadyRegisteredError
 from melinoe.workflows.skills.enrich_professor_profile import EnrichProfessorProfileSkill
+from melinoe.workflows.skills.enrich_professor_profile import ProfileEnrichmentResult
 from melinoe.workflows.skills.execute_web_mentions import ExecuteWebMentionsSkill
 from melinoe.workflows.skills.execute_web_mentions import WebMention
 from melinoe.workflows.skills.load_scraping_state import LoadScrapingStateSkill
+from melinoe.workflows.skills.load_scraping_state import ScrapingState
 from melinoe.workflows.skills.loader import load_agent
 from melinoe.workflows.skills.loader import load_soul
 from melinoe.workflows.skills.plan_scraping import PlanScrapingSkill
@@ -62,18 +64,16 @@ class SenhorDasHorasMortasWorkflow(Workflow):
 
         # Stop if more than 24 h have passed since the last new mention AND the pending queue is empty.
         # This means the daily cron ran, found nothing new, and there is nowhere left to look.
-        if not state.pending_urls and state.last_new_mention_at:
-            delta = datetime.now(tz=UTC) - datetime.fromisoformat(state.last_new_mention_at)
-            if delta.total_seconds() >= 86400:
-                workflow_log.info("No pending URLs and no new mention in the last 24 h — cataloging appears complete.")
-                return {
-                    "session_id": session_id,
-                    "urls_visited": 0,
-                    "new_mentions_found": 0,
-                    "profile_enriched": False,
-                    "pending_urls_remaining": 0,
-                    "summary": "Sem novos resultados há mais de 24 h. Catalogação possivelmente concluída.",
-                }
+        if self._is_state_stale(state):
+            workflow_log.info("No pending URLs and no new mention in the last 24 h — cataloging appears complete.")
+            return {
+                "session_id": session_id,
+                "urls_visited": 0,
+                "new_mentions_found": 0,
+                "profile_enriched": False,
+                "pending_urls_remaining": 0,
+                "summary": "Sem novos resultados há mais de 24 h. Catalogação possivelmente concluída.",
+            }
 
         total_visited = 0
         total_mentions = 0
@@ -110,9 +110,7 @@ class SenhorDasHorasMortasWorkflow(Workflow):
             enrichment = self._enrich.run(mentions_result=mentions_result)
             if enrichment.profile_updated:
                 profile_enriched = True
-                workflow_log.info("Profile enriched: %s new discoveries", len(enrichment.new_discoveries))
-                for discovery in enrichment.new_discoveries:
-                    workflow_log.info("  ↳ %s", discovery)
+                self._log_profile_enrichment(enrichment)
 
             works_saved = self._catalog_found_works(mentions_result.mentions)
             if works_saved:
@@ -153,6 +151,17 @@ class SenhorDasHorasMortasWorkflow(Workflow):
 
         workflow_log.info("SenhorDasHorasMortasWorkflow complete → session=%s", session_id)
         return result
+
+    def _is_state_stale(self, state: ScrapingState) -> bool:
+        if not state.pending_urls or not state.last_new_mention_at:
+            return False
+        delta = datetime.now(tz=UTC) - datetime.fromisoformat(state.last_new_mention_at)
+        return delta.total_seconds() >= 86400
+
+    def _log_profile_enrichment(self, enrichment: ProfileEnrichmentResult) -> None:
+        workflow_log.info("Profile enriched: %s new discoveries", len(enrichment.new_discoveries))
+        for discovery in enrichment.new_discoveries:
+            workflow_log.info("  ↳ %s", discovery)
 
     _BYLINE_PATTERNS = re.compile(
         r"e-mail\s*:|@|\bpor\s*:\s*\w|\bcoluna\b|\bcolunista\b|\bredação\b|\bredacao\b",

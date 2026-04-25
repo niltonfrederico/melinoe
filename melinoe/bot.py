@@ -9,6 +9,7 @@ from typing import Any
 
 from telegram import InlineKeyboardButton
 from telegram import InlineKeyboardMarkup
+from telegram import Message
 from telegram import Update
 from telegram.ext import ApplicationBuilder
 from telegram.ext import BaseHandler
@@ -41,6 +42,7 @@ _PROFESSOR_DETECTION_KEY = "professor_detection"
 
 _BotHandlers = list[BaseHandler[Update, ContextTypes.DEFAULT_TYPE, object]]
 _confidence_labels: dict[str, str] = {"high": "alta", "medium": "média", "low": "baixa"}
+_ERR_COVER_AGAIN = "Algo deu errado. Por favor, envie a capa do livro novamente."
 
 
 async def start(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> object:
@@ -73,8 +75,9 @@ async def handle_cover_photo(update: Update, context: ContextTypes.DEFAULT_TYPE)
     photo = update.message.photo[-1]
     tg_file = await context.bot.get_file(photo.file_id)
 
-    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_file:
-        tmp_path = Path(tmp_file.name)
+    tmp_file = await asyncio.to_thread(tempfile.NamedTemporaryFile, suffix=".jpg", delete=False)
+    tmp_path = Path(tmp_file.name)
+    tmp_file.close()
 
     try:
         await tg_file.download_to_drive(tmp_path)
@@ -134,6 +137,23 @@ async def handle_cover_photo(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return _WAITING_TITLE_PAGE
 
 
+async def _reply_if_present(
+    message: Message | None,
+    text: str,
+    reply_markup: InlineKeyboardMarkup | None = None,
+) -> None:
+    if message is not None:
+        await message.reply_text(text, reply_markup=reply_markup)
+
+
+def _make_progress_sender(message: Message | None, loop: asyncio.AbstractEventLoop) -> Callable[[str], None]:
+    def callback(text: str) -> None:
+        if message is not None:
+            asyncio.run_coroutine_threadsafe(message.reply_text(text), loop)
+
+    return callback
+
+
 async def handle_professor_confirmed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> object:
     """User confirmed this is a Professor work — route to KardoNavalhaWorkflow."""
     query = update.callback_query
@@ -147,8 +167,7 @@ async def handle_professor_confirmed(update: Update, context: ContextTypes.DEFAU
 
     cover_path_str: str | None = context.user_data.get(_COVER_PATH_KEY)
     if not cover_path_str:
-        if update.effective_message is not None:
-            await update.effective_message.reply_text("Algo deu errado. Por favor, envie a imagem novamente.")
+        await _reply_if_present(update.effective_message, "Algo deu errado. Por favor, envie a imagem novamente.")
         return ConversationHandler.END
 
     raw_detection: dict[str, Any] | None = context.user_data.get(_PROFESSOR_DETECTION_KEY)
@@ -156,15 +175,7 @@ async def handle_professor_confirmed(update: Update, context: ContextTypes.DEFAU
     if raw_detection:
         detection = ProfessorDetectionResult(**raw_detection)
 
-    loop = asyncio.get_running_loop()
-    effective_message = update.effective_message
-
-    async def _send_progress(text: str) -> None:
-        if effective_message is not None:
-            await effective_message.reply_text(text)
-
-    def on_progress(text: str) -> None:
-        asyncio.run_coroutine_threadsafe(_send_progress(text), loop)
+    on_progress = _make_progress_sender(update.effective_message, asyncio.get_running_loop())
 
     try:
         result = await asyncio.to_thread(_run_professor_workflow, Path(cover_path_str), detection, on_progress)
@@ -178,11 +189,11 @@ async def handle_professor_confirmed(update: Update, context: ContextTypes.DEFAU
                 ]
             ]
         )
-        if effective_message is not None:
-            await effective_message.reply_text(
-                "Já tenho este trabalho registrado. Quer atualizar?",
-                reply_markup=keyboard,
-            )
+        await _reply_if_present(
+            update.effective_message,
+            "Já tenho este trabalho registrado. Quer atualizar?",
+            keyboard,
+        )
         return _WAITING_BOOK_CONFIRMATION
     except Exception as exc:
         user = update.effective_user
@@ -190,13 +201,11 @@ async def handle_professor_confirmed(update: Update, context: ContextTypes.DEFAU
         bot_log.error("[%s] KardoNavalhaWorkflow failed — %s", username, exc)
         reply = "Não consegui catalogar este trabalho. Por favor, tente com uma foto mais nítida."
     else:
-        if effective_message is not None:
-            await effective_message.reply_text(reply)
+        await _reply_if_present(update.effective_message, reply)
         _cleanup_paths(context)
         return ConversationHandler.END
 
-    if effective_message is not None:
-        await effective_message.reply_text(reply)
+    await _reply_if_present(update.effective_message, reply)
     _cleanup_paths(context)
     return ConversationHandler.END
 
@@ -227,14 +236,15 @@ async def handle_title_page_photo(update: Update, context: ContextTypes.DEFAULT_
         return ConversationHandler.END
 
     if not context.user_data.get(_COVER_PATH_KEY):
-        await update.message.reply_text("Algo deu errado. Por favor, envie a capa do livro novamente.")
+        await update.message.reply_text(_ERR_COVER_AGAIN)
         return ConversationHandler.END
 
     photo = update.message.photo[-1]
     tg_file = await context.bot.get_file(photo.file_id)
 
-    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_file:
-        title_page_path = Path(tmp_file.name)
+    tmp_file = await asyncio.to_thread(tempfile.NamedTemporaryFile, suffix=".jpg", delete=False)
+    title_page_path = Path(tmp_file.name)
+    tmp_file.close()
 
     try:
         await tg_file.download_to_drive(title_page_path)
@@ -256,11 +266,11 @@ async def handle_no_title_page(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer()
 
     if context.user_data is None:
-        await query.edit_message_text("Algo deu errado. Por favor, envie a capa do livro novamente.")
+        await query.edit_message_text(_ERR_COVER_AGAIN)
         return ConversationHandler.END
 
     if not context.user_data.get(_COVER_PATH_KEY):
-        await query.edit_message_text("Algo deu errado. Por favor, envie a capa do livro novamente.")
+        await query.edit_message_text(_ERR_COVER_AGAIN)
         return ConversationHandler.END
 
     await query.edit_message_text("Ok, vou seguir sem a folha de rosto...")
@@ -283,7 +293,7 @@ async def handle_book_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
     title_page_path_str: str | None = context.user_data.get(_TITLE_PAGE_PATH_KEY)
     if not cover_path_str:
         if update.effective_message is not None:
-            await update.effective_message.reply_text("Algo deu errado. Por favor, envie a capa do livro novamente.")
+            await update.effective_message.reply_text(_ERR_COVER_AGAIN)
         return ConversationHandler.END
 
     try:
@@ -418,6 +428,33 @@ def _run_workflow(
     return wf.run(file_path, title_page_path=title_page_path, force_update=force_update)
 
 
+def _truncate(text: str, limit: int) -> str:
+    return text[:limit] + ("..." if len(text) > limit else "")
+
+
+def _build_publication_info(
+    year: int | None,
+    publisher: str | None,
+    pages: int | None,
+    language: str | None,
+) -> str | None:
+    parts: list[str] = []
+    if year:
+        parts.append(str(year))
+    if publisher:
+        parts.append(publisher)
+    if pages:
+        parts.append(f"{pages} páginas")
+    if language:
+        parts.append(language)
+    return " · ".join(parts) if parts else None
+
+
+def _build_ratings_line(ratings: dict[str, object]) -> str | None:
+    parts = [f"{source}: {score}" for source, score in ratings.items() if score]
+    return f"Avaliações: {', '.join(parts)}" if parts else None
+
+
 def _format_result(result: dict[str, Any]) -> str:
     meta: dict[str, Any] = result.get("bibliographic_metadata") or {}
     cover: dict[str, Any] = result.get("cover_analysis") or {}
@@ -439,17 +476,9 @@ def _format_result(result: dict[str, Any]) -> str:
     if author:
         lines.append(f"por {author}")
 
-    details: list[str] = []
-    if year:
-        details.append(str(year))
-    if publisher:
-        details.append(publisher)
-    if pages:
-        details.append(f"{pages} páginas")
-    if language:
-        details.append(language)
+    details = _build_publication_info(year, publisher, pages, language)
     if details:
-        lines.append(" · ".join(details))
+        lines.append(details)
 
     origin = meta.get("origin")
     if origin:
@@ -459,16 +488,14 @@ def _format_result(result: dict[str, Any]) -> str:
         lines.append(f"Gêneros: {', '.join(genres)}")
 
     if synopsis:
-        short = synopsis[:400] + ("..." if len(synopsis) > 400 else "")
-        lines.append(f"\n{short}")
+        lines.append(f"\n{_truncate(synopsis, 400)}")
 
     if awards:
         lines.append(f"\nPrêmios: {', '.join(awards)}")
 
-    if ratings:
-        rating_parts = [f"{source}: {score}" for source, score in ratings.items() if score]
-        if rating_parts:
-            lines.append(f"Avaliações: {', '.join(rating_parts)}")
+    rating_line = _build_ratings_line(ratings)
+    if rating_line:
+        lines.append(rating_line)
 
     confidence_label = _confidence_labels.get(confidence, confidence)
     lines.append(f"\nConfiança: {confidence_label}")
@@ -534,8 +561,7 @@ def _format_professor_result(result: dict[str, Any]) -> str:
         lines.append(f"Tags: {', '.join(tags)}")
 
     if notes:
-        short = notes[:300] + ("..." if len(notes) > 300 else "")
-        lines.append(f"\n{short}")
+        lines.append(f"\n{_truncate(notes, 300)}")
 
     confidence_label = _confidence_labels.get(confidence, confidence)
     lines.append(f"\nConfiança: {confidence_label}")

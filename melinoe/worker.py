@@ -1,5 +1,6 @@
 """ARQ worker: defines async tasks and cron jobs for background processing."""
 
+import asyncio
 from collections.abc import Callable
 from typing import Any
 from typing import ClassVar
@@ -19,7 +20,7 @@ async def scrape_task(ctx: dict[str, Any], trigger: str = "cron") -> dict[str, A
 
     workflow_log.info("scrape_task started — trigger=%s", trigger)
     wf = SenhorDasHorasMortasWorkflow()
-    result = wf.run(trigger=trigger)
+    result = await asyncio.to_thread(wf.run, trigger)
     workflow_log.info(
         "scrape_task complete — mentions=%s, enriched=%s",
         result.get("new_mentions_found"),

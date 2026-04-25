@@ -223,4 +223,5 @@ class BookwormWorkflow(Workflow):
         if not marker:
             return metadata
 
-        return dc_replace(metadata, title=f"{title} — {marker}")
+        enriched: BookMetadata = dc_replace(metadata, title=f"{title} — {marker}")
+        return enriched
