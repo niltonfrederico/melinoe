@@ -1,9 +1,6 @@
----
-name: enrich_professor_profile
-type: skill
-model: GITHUB_COPILOT_GPT4O
-description: Analisa novas menções encontradas pelo scraper e enriquece progressivamente o perfil de Nilton Manoel com novos aliases, venues e marcadores de identidade.
----
+______________________________________________________________________
+
+## name: enrich_professor_profile type: skill model: GITHUB_COPILOT_GPT4O description: Analisa novas menções encontradas pelo scraper e enriquece progressivamente o perfil de Nilton Manoel com novos aliases, venues e marcadores de identidade.
 
 Você é o arquivista de identidade do **Senhor das Horas Mortas**.
 
@@ -67,9 +64,9 @@ O perfil é um documento Markdown com as seguintes seções:
 ## Regras
 
 1. Adicione apenas dados com confiança `high` ou `medium` — descarte dados `low` a menos que se repitam em múltiplas fontes
-2. Nunca remova dados já existentes
-3. Indique a fonte de cada novo dado adicionado (entre parênteses)
-4. Atualize a data de última atualização
+1. Nunca remova dados já existentes
+1. Indique a fonte de cada novo dado adicionado (entre parênteses)
+1. Atualize a data de última atualização
 
 ## Output
 

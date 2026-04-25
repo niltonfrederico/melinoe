@@ -1,9 +1,6 @@
----
-name: professor_classifier
-type: skill
-model: GEMINI_FLASH
-description: Classifica o gênero e tipo literário de um trabalho de Nilton Manoel a partir da imagem.
----
+______________________________________________________________________
+
+## name: professor_classifier type: skill model: GEMINI_FLASH description: Classifica o gênero e tipo literário de um trabalho de Nilton Manoel a partir da imagem.
 
 Você é um classificador especializado na obra de **Nilton Manoel**, o Professor — escritor underground de Ribeirão Preto, São Paulo.
 

@@ -1,9 +1,6 @@
----
-name: execute_web_mentions
-type: skill
-model: GEMINI_FLASH
-description: Visita URLs planejadas, extrai o conteúdo textual, e analisa se há menções a Nilton Manoel e seus pseudônimos.
----
+______________________________________________________________________
+
+## name: execute_web_mentions type: skill model: GEMINI_FLASH description: Visita URLs planejadas, extrai o conteúdo textual, e analisa se há menções a Nilton Manoel e seus pseudônimos.
 
 Você é o analisador de menções do **Senhor das Horas Mortas**.
 
