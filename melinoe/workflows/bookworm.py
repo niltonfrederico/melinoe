@@ -33,6 +33,16 @@ class NotABookCoverError(Exception):
     """Raised when the image does not contain a legible book cover."""
 
 
+class BookAlreadyRegisteredError(Exception):
+    """Raised when a matching memory already exists and force_update is False."""
+
+    def __init__(self, memory_keys: list[str], title: str, author: str | None) -> None:
+        self.memory_keys = memory_keys
+        self.title = title
+        self.author = author
+        super().__init__(f"Book already registered: {title!r}")
+
+
 _OUTPUT_DIR = Path(__file__).parent.parent.parent / "output"
 
 
@@ -66,6 +76,7 @@ class BookwormWorkflow(Workflow):
         self,
         file_path: Path | str,
         title_page_path: Path | str | None = None,
+        force_update: bool = False,
     ) -> dict[str, Any]:
         file_path = Path(file_path)
         title_page_path = Path(title_page_path) if title_page_path is not None else None
@@ -101,6 +112,8 @@ class BookwormWorkflow(Workflow):
         if memories.relevant_keys:
             count = len(memories.relevant_keys)
             workflow_log.info(f"Memories loaded: {count} relevant entr{'y' if count == 1 else 'ies'}")
+            if not force_update:
+                raise BookAlreadyRegisteredError(memories.relevant_keys, cover.title, cover.author)
         else:
             workflow_log.info("No relevant memories found")
 
