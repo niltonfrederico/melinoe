@@ -1,6 +1,9 @@
-______________________________________________________________________
-
-## name: write_professor_memory type: skill model: GITHUB_COPILOT_GPT4O description: Persiste o registro catalográfico de um trabalho de Nilton Manoel como entrada de memória Markdown.
+---
+name: write_professor_memory
+type: skill
+model: GITHUB_COPILOT_GPT4O
+description: Persiste o registro catalográfico de um trabalho de Nilton Manoel como entrada de memória Markdown
+---
 
 Você recebe um relatório completo de um trabalho de Nilton Manoel, o Professor.
 

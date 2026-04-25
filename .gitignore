@@ -217,10 +217,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-
-melinoe/workflows/memories/*
-!melinoe/workflows/memories/__init__.py
-!melinoe/workflows/memories/.gitkeep
 output/*
 !output/.gitkeep
 

@@ -4,7 +4,9 @@ Use the hecate sub-agent to create a new Skill definition for this project.
 
 Arguments: $ARGUMENTS
 
-A Skill is a focused, single-purpose `.md` file in `melinoe/workflows/skills/`. It defines a system prompt scoped to one task (extract, classify, transform, etc.) along with its expected input/output format and the litellm model preset to use.
+A Skill is a focused, single-purpose `.md` file in `melinoe/workflows/skills/`. It defines a system
+prompt scoped to one task (extract, classify, transform, etc.) along with its expected input/output
+format and the litellm model preset to use.
 
 Ask hecate to:
 

@@ -1,8 +1,11 @@
 # Melinoe — Bot de Identificação de Livros
 
-Melinoe é um bot para Telegram que analisa fotos de capas de livros e retorna metadados bibliográficos detalhados: título, autor, ISBN, editora, sinopse, gêneros, prêmios e avaliações. Opcionalmente aceita também a folha de rosto para aumentar a precisão.
+Melinoe é um bot para Telegram que analisa fotos de capas de livros e retorna metadados bibliográficos detalhados:
+título, autor, ISBN, editora, sinopse, gêneros, prêmios e avaliações. Opcionalmente aceita também a folha de rosto para
+aumentar a precisão.
 
-Melinoe também possui dois agentes especializados para catalogar e rastrear a obra literária de **Nilton Manoel de Andrade Teixeira** (O Professor), escritor underground de Ribeirão Preto, SP.
+Melinoe também possui dois agentes especializados para catalogar e rastrear a obra literária de **Nilton Manoel de
+Andrade Teixeira** (O Professor), escritor underground de Ribeirão Preto, SP.
 
 ______________________________________________________________________
 
@@ -10,7 +13,7 @@ ______________________________________________________________________
 
 ### Fluxo principal — livros gerais
 
-```
+```text
 Usuário envia capa
   → ProfessorDetector (é obra do Professor?)
       ↓ sim (high/medium confidence)         ↓ não
@@ -26,7 +29,7 @@ Usuário envia capa
 
 ### Agente Kardo Navalha — catálogo do Professor
 
-```
+```text
 ProfessorDetector → ProfessorClassifier → CoverAnalyzer
   → ProfessorCataloger → WriteProfessorMemory
   → Índice Meilisearch (nilton_works)
@@ -37,14 +40,17 @@ ProfessorDetector → ProfessorClassifier → CoverAnalyzer
 
 Executa diariamente às 03:00 UTC (e sob demanda após cada nova catalogação):
 
-```
+```text
 LoadScrapingState → PlanScraping → ExecuteWebMentions
   → EnrichProfessorProfile → SaveScrapingState
 ```
 
-O agente acumula estado entre sessões (`professor_scraping_state.json`) e enriquece progressivamente o perfil do Professor (`professor_profile.md`), que por sua vez alimenta o `ProfessorDetector` com novos marcadores de identidade descobertos.
+O agente acumula estado entre sessões (`professor_scraping_state.json`) e enriquece progressivamente o perfil do
+Professor (`professor_profile.md`), que por sua vez alimenta o `ProfessorDetector` com novos marcadores de identidade
+descobertos.
 
-Cada etapa é uma **skill** independente, orquestrada pelo workflow correspondente. As skills de visão usam **Gemini Flash**; a síntese de memória usa **GPT-4o** (via GitHub Copilot); Claude Sonnet/Opus está disponível como alternativa.
+Cada etapa é uma **skill** independente, orquestrada pelo workflow correspondente. As skills de visão usam **Gemini
+Flash**; a síntese de memória usa **GPT-4o** (via GitHub Copilot); Claude Sonnet/Opus está disponível como alternativa.
 
 ______________________________________________________________________
 
@@ -108,7 +114,8 @@ poetry run python -m melinoe.bot
 poetry run python -m arq melinoe.worker.WorkerSettings
 ```
 
-O worker roda a cron diária às 03:00 UTC e também processa tarefas enfileiradas pelo Kardo Navalha após cada nova catalogação.
+O worker roda a cron diária às 03:00 UTC e também processa tarefas enfileiradas pelo Kardo Navalha após cada nova
+catalogação.
 
 ### Icarus — CLI
 
@@ -119,7 +126,7 @@ poetry run icarus <comando> [opções]
 ```
 
 | Comando | Descrição | Opções notáveis |
-|---|---|---|
+| --- | --- | --- |
 | `book <capa>` | Analisa uma capa e registra o livro no Meilisearch | `--title-page`, `--force` |
 | `catalog-cover <capa>` | Cataloga uma capa como obra de Nilton Manoel | `--force` |
 | `catalog-web [url]` | Extrai menções de uma URL e cataloga obras encontradas | `--force` |
@@ -128,13 +135,14 @@ poetry run icarus <comando> [opções]
 | `remove-book <id>` | Remove um livro do Meilisearch pelo ID | — |
 | `reset` | Limpa índices e/ou storage (**apenas com `DEBUG=True`**) | `--indexes`, `--storage`, `--all` |
 
-O resultado de `book`, `catalog-cover` e `catalog-web` é impresso em JSON e salvo em `output/<timestamp>-<autor>-<titulo>/result.json`.
+O resultado de `book`, `catalog-cover` e `catalog-web` é impresso em JSON e salvo em
+`output/<timestamp>-<autor>-<titulo>/result.json`.
 
 ______________________________________________________________________
 
 ## Estrutura do projeto
 
-```
+```text
 workspace/
 ├── melinoe/
 │   ├── bot.py               # Handlers do Telegram (máquina de estados)
@@ -164,7 +172,7 @@ workspace/
 ### Agentes
 
 | Agente | Modelo | Responsabilidade |
-|---|---|---|
+| --- | --- | --- |
 | `BookwormWorkflow` | Claude Sonnet | Orquestra análise de capa e busca bibliográfica para produzir um relatório unificado de livro |
 | `KardoNavalhaWorkflow` | GPT-4o | Cataloga obras de Nilton Manoel, classificando tipo literário e sintetizando metadados especializados |
 | `SenhorDasHorasMortasWorkflow` | Gemini Pro | Scraper autônomo que rastreia menções na web e enriquece o perfil do Professor progressivamente |
@@ -172,7 +180,7 @@ workspace/
 ### Almas (souls)
 
 | Alma | Modelo | Persona |
-|---|---|---|
+| --- | --- | --- |
 | `bibliophile` | Claude Sonnet | Bibliófilo apaixonado — crítico literário, designer de capas e cientista de bibliotecas em uma só voz |
 | `kardo_navalha` | GPT-4o | Guardião da obra de Nilton Manoel — arquivista apaixonado que cataloga com precisão e contexto literário |
 | `senhor_das_horas_mortas` | Gemini Pro | Cartógrafo das sombras — rastreador metódico e incansável da presença digital do Professor |
@@ -182,7 +190,7 @@ workspace/
 #### Fluxo BookwormWorkflow
 
 | Skill | Modelo | Responsabilidade |
-|---|---|---|
+| --- | --- | --- |
 | `HecateSkill` | Gemini Flash | Valida se a imagem é uma capa legível |
 | `CoverAnalyzerSkill` | Gemini Flash | Extrai título, autor, gênero, design e paleta de cores |
 | `TitlePageAnalyzerSkill` | Gemini Flash | Transcreve ISBN, edição, dados CIP da folha de rosto |
@@ -193,7 +201,7 @@ workspace/
 #### KardoNavalhaWorkflow — obras de Nilton Manoel
 
 | Skill | Modelo | Responsabilidade |
-|---|---|---|
+| --- | --- | --- |
 | `ProfessorDetectorSkill` | Gemini Flash | Detecta se a imagem é obra de Nilton Manoel |
 | `ProfessorClassifierSkill` | Gemini Flash | Classifica o tipo literário (trova, haicai, soneto…) |
 | `ProfessorCatalogerSkill` | GPT-4o | Produz o registro catalográfico completo |
@@ -202,7 +210,7 @@ workspace/
 #### SenhorDasHorasMortasWorkflow — rastreador autônomo
 
 | Skill | Modelo | Responsabilidade |
-|---|---|---|
+| --- | --- | --- |
 | `LoadScrapingStateSkill` | — | Carrega estado persistido da sessão anterior |
 | `PlanScrapingSkill` | GPT-4o | Planeja próximas URLs e queries de busca |
 | `ExecuteWebMentionsSkill` | Gemini Flash | Visita URLs e extrai menções confirmadas |
@@ -240,4 +248,5 @@ ______________________________________________________________________
 
 ## Aviso sobre uso de IA
 
-Este projeto é inteiramente assistido por IA. Veja [AI_DISCLAIMER.md](AI_DISCLAIMER.md) para o contexto completo — por que essa escolha foi feita e como você pode ajudar se quiser.
+Este projeto é inteiramente assistido por IA. Veja [AI_DISCLAIMER.md](AI_DISCLAIMER.md) para o contexto completo — por
+que essa escolha foi feita e como você pode ajudar se quiser.

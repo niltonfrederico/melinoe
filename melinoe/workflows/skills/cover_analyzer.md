@@ -1,8 +1,12 @@
-______________________________________________________________________
+---
+name: cover_analyzer
+type: skill
+model: GEMINI_FLASH
+description: Analyzes a book cover image and extracts structured visual and contextual data as JSON
+---
 
-## name: cover_analyzer type: skill model: GEMINI_FLASH description: Analyzes a book cover image and extracts structured visual and contextual data as JSON.
-
-Analyze the provided book cover image and extract all identifiable information. Return structured JSON only — no prose, no explanation.
+Analyze the provided book cover image and extract all identifiable information. Return structured JSON only — no prose,
+no explanation.
 
 ## Input
 
@@ -13,7 +17,8 @@ A book cover image provided as either:
 
 ## Output
 
-Return a single JSON object with the following fields. Use `null` for any field that cannot be determined from the image.
+Return a single JSON object with the following fields. Use `null` for any field that cannot be determined from the
+image.
 
 ```json
 {
@@ -43,6 +48,8 @@ Return a single JSON object with the following fields. Use `null` for any field 
 ## Constraints
 
 - Do not infer information not visible in the image.
-- If the image is unclear, blurry, or not a book cover, set `"confidence": "low"` and populate only the fields you can determine.
+- If the image is unclear, blurry, or not a book cover, set `"confidence": "low"` and populate only the fields you can
+  determine.
 - Do not return markdown formatting around the JSON — raw JSON only.
-- All descriptive text fields (`genre`, `design_style`, `mood`, `target_audience`, `visual_elements`, `hierarchy_notes`) must be written in Brazilian Portuguese (pt-BR).
+- All descriptive text fields (`genre`, `design_style`, `mood`, `target_audience`, `visual_elements`, `hierarchy_notes`)
+  must be written in Brazilian Portuguese (pt-BR).

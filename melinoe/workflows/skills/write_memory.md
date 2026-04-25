@@ -1,6 +1,9 @@
-______________________________________________________________________
-
-## name: write_memory type: skill model: GITHUB_COPILOT_GPT4O description: Given a completed book report (cover analysis + bibliographic metadata), generates a concise, structured memory entry suitable for future retrieval.
+---
+name: write_memory
+type: skill
+model: GITHUB_COPILOT_GPT4O
+description: Given a completed book report (cover analysis + bibliographic metadata), generates a concise, structured memory entry suitable for future retrieval
+---
 
 Generate a memory entry from the provided book report. Return structured JSON only — no prose, no explanation.
 
@@ -46,7 +49,7 @@ Return a single JSON object:
 
 The `memory_content` value must follow this structure:
 
-```
+```markdown
 # {Title}
 
 **Author:** {author}
@@ -66,6 +69,8 @@ The `memory_content` value must follow this structure:
 - Be factual and concise. Do not add commentary, opinions, or filler.
 - Derive all content strictly from the provided report fields. Do not fabricate details.
 - Keep `memory_content` under 300 words.
-- Include enough structured detail (title, author, ISBN, year, genres) to support future relevance matching by `load_relevant_memory`.
-- Write all `memory_content` text in Brazilian Portuguese (pt-BR). Labels (Author, ISBN, etc.) may remain in English for machine readability, but all narrative text (synopsis) must be in pt-BR.
+- Include enough structured detail (title, author, ISBN, year, genres) to support future relevance matching by
+  `load_relevant_memory`.
+- Write all `memory_content` text in Brazilian Portuguese (pt-BR). Labels (Author, ISBN, etc.) may remain in English for
+  machine readability, but all narrative text (synopsis) must be in pt-BR.
 - Do not return markdown formatting around the JSON — raw JSON only.

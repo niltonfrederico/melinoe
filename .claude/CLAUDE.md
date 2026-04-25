@@ -2,7 +2,9 @@
 
 ## What this project is
 
-Melinoe is a Telegram bot that identifies books from cover photos. It uses a pipeline of LLM-backed skills orchestrated by `BookwormWorkflow`. The name `melinoe` is the repo slug; the Python package is `melinoe`.
+Melinoe is a Telegram bot that identifies books from cover photos. It uses a pipeline of LLM-backed
+skills orchestrated by `BookwormWorkflow`. The name `melinoe` is the repo slug; the Python package
+is `melinoe`.
 
 Melinoe also has two specialized agents for the literary work of **Nilton Manoel de Andrade Teixeira** (O Professor):
 
@@ -44,7 +46,7 @@ ______________________________________________________________________
 
 Every skill, agent, and soul is defined by a paired Markdown file loaded via `loader.py`. Frontmatter fields:
 
-```
+```yaml
 ---
 name: <name>
 type: skill | agent | soul
@@ -70,11 +72,13 @@ Never hardcode a model string — always use the `ModelConfig` constants from `m
 
 ### Structured output
 
-Skills return **dataclasses**, not raw dicts. Always define a dataclass for the result type alongside the skill class in the same file.
+Skills return **dataclasses**, not raw dicts. Always define a dataclass for the result type
+alongside the skill class in the same file.
 
 ### Memory
 
-Persistent book memories live in `melinoe/workflows/memories/<slug>.md` (one file per book). The `Workflow` base class provides `load_memory`, `save_memory`, and `delete_memory`.
+Persistent book memories live in `melinoe/workflows/memories/<slug>.md` (one file per book).
+The `Workflow` base class provides `load_memory`, `save_memory`, and `delete_memory`.
 
 ______________________________________________________________________
 
@@ -85,7 +89,8 @@ ______________________________________________________________________
 - **No relative imports** — ruff enforces this; all imports must be absolute
 - **Single-line isort** — one import per line
 - **All imports at module top level** — never inside functions, methods, or conditional blocks
-- **Typing-only imports inside `TYPE_CHECKING`** — any symbol used only in annotations must live in an `if TYPE_CHECKING:` block
+- **Typing-only imports inside `TYPE_CHECKING`** — any symbol used only in annotations must live
+  in an `if TYPE_CHECKING:` block
 
 ```python
 from __future__ import annotations
@@ -109,7 +114,8 @@ if TYPE_CHECKING:
 
 - **No comments on obvious code** — only add a comment when the *why* is non-obvious
 - **No docstrings on trivial methods** — module-level docstrings are fine; skip them on short helpers
-- **Dataclasses for all structured data** — prefer `@dataclass` or `@dataclass(frozen=True)` over plain dicts for return types
+- **Dataclasses for all structured data** — prefer `@dataclass` or `@dataclass(frozen=True)` over
+  plain dicts for return types
 - Line length: 120 characters (ruff-enforced)
 - Two blank lines between top-level definitions; one blank line between methods
 
@@ -166,7 +172,8 @@ Defined in `melinoe/settings.py` via `environs`. Required:
 - `REDIS_URL` (default: `redis://localhost:6379`)
 - `MEILISEARCH_URL` + `MEILISEARCH_API_KEY`
 
-Never access `os.environ` directly in business logic — go through `settings.py` or the `ModelConfig.api_key_env` indirection in `client.py`.
+Never access `os.environ` directly in business logic — go through `settings.py` or the
+`ModelConfig.api_key_env` indirection in `client.py`.
 
 ______________________________________________________________________
 
@@ -182,7 +189,8 @@ There are three writers named Nilton in the same family. Never confuse them:
 | **Nilton da Costa** | Grandfather — also a writer | Out of scope — do not catalog |
 | **Nilton Frederico** | Son of Nilton Manoel — also a writer | Out of scope — do not catalog |
 
-He signed his works as **Nilton Manoel** (without the full surname). The full legal name appears in prompts for disambiguation confidence.
+He signed his works as **Nilton Manoel** (without the full surname). The full legal name appears
+in prompts for disambiguation confidence.
 
 ### Pseudonyms
 
@@ -191,7 +199,10 @@ He signed his works as **Nilton Manoel** (without the full surname). The full le
 
 ### Work types
 
-`trova | haicai | aldravia | soneto | conto | cronica | jornal | pesquisa | poesia | poema | entrevista | jogo_floral | manuscrito | outro`
+```text
+trova | haicai | aldravia | soneto | conto | cronica | jornal | pesquisa | poesia | poema |
+entrevista | jogo_floral | manuscrito | outro
+```
 
 ### Associations
 
@@ -211,7 +222,8 @@ He signed his works as **Nilton Manoel** (without the full surname). The full le
 
 ### ARQ background jobs
 
-- `scrape_task` — runs `SenhorDasHorasMortasWorkflow`; triggered by cron (03:00 UTC daily) or by `KardoNavalhaWorkflow` after a new work is cataloged
+- `scrape_task` — runs `SenhorDasHorasMortasWorkflow`; triggered by cron (03:00 UTC daily) or by
+  `KardoNavalhaWorkflow` after a new work is cataloged
 - Worker entry point: `poetry run python -m arq melinoe.worker.WorkerSettings`
 
 ______________________________________________________________________
@@ -222,9 +234,11 @@ Results are written to `output/<timestamp>-<author>-<title>/`:
 
 - `cover.<ext>` — copy of the input cover image
 - `title_page.<ext>` — copy of the title page (if provided)
-- `result.json` — full JSON output with `cover_analysis`, `title_page_analysis`, `bibliographic_metadata`, `report_confidence`, and `notes`
+- `result.json` — full JSON output with `cover_analysis`, `title_page_analysis`,
+  `bibliographic_metadata`, `report_confidence`, and `notes`
 
-Professor works write to `output/professor/<timestamp>-professor-<type>-<title>/` with the same structure plus `catalog` and `classification` fields.
+Professor works write to `output/professor/<timestamp>-professor-<type>-<title>/` with the same
+structure plus `catalog` and `classification` fields.
 
 ______________________________________________________________________
 
