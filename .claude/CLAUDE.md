@@ -4,7 +4,7 @@
 
 Melinoe is a Telegram bot that identifies books from cover photos. It uses a pipeline of LLM-backed skills orchestrated by `BookwormWorkflow`. The name `hallm9000` is the repo slug; the Python package is `melinoe`.
 
----
+______________________________________________________________________
 
 ## Tech stack
 
@@ -15,19 +15,21 @@ Melinoe is a Telegram bot that identifies books from cover photos. It uses a pip
 - **ruff** — linter and formatter (line length 120, absolute imports only)
 - **ty** — type checker
 
----
+______________________________________________________________________
 
 ## Architecture
 
 ### Core abstractions (`melinoe/workflows/base.py`)
 
 **`Step`** — one atomic LLM call. Subclasses must:
+
 - Set a class-level `model_config: ModelConfig`
 - Implement `validate(*args, **kwargs) -> None` — raise on bad input
 - Implement `execute(*args, **kwargs)` — return a dataclass
 - Call via `run()`, never `execute()` directly — `run()` handles logging and timing
 
 **`Workflow`** — orchestrates an ordered list of Steps. Subclasses must:
+
 - Set a class-level `agent: str` matching an `.md` file in `workflows/agents/`
 - Implement `run(*args, **kwargs)`
 - Use `self._emit(message)` for progress updates to the Telegram bot
@@ -68,7 +70,7 @@ Skills return **dataclasses**, not raw dicts. Always define a dataclass for the 
 
 Persistent book memories live in `melinoe/workflows/memories/<slug>.md` (one file per book). The `Workflow` base class provides `load_memory`, `save_memory`, and `delete_memory`.
 
----
+______________________________________________________________________
 
 ## Code conventions
 
@@ -79,7 +81,7 @@ Persistent book memories live in `melinoe/workflows/memories/<slug>.md` (one fil
 - **No docstrings on trivial methods** — module-level docstrings are fine; skip them on short helpers
 - **Dataclasses for all structured data** — prefer `@dataclass` or `@dataclass(frozen=True)` over plain dicts for return types
 
----
+______________________________________________________________________
 
 ## Development commands
 
@@ -105,18 +107,18 @@ poetry run pre-commit install
 
 Pre-commit runs ruff automatically on every commit. Never skip it with `--no-verify`.
 
----
+______________________________________________________________________
 
 ## Adding a new skill
 
 1. Create `melinoe/workflows/skills/<name>.md` with the frontmatter and system prompt
-2. Create `melinoe/workflows/skills/<name>.py` with:
+1. Create `melinoe/workflows/skills/<name>.py` with:
    - A result dataclass
    - A `Step` subclass with `model_config`, `validate()`, and `execute()`
-3. Export from `melinoe/workflows/skills/__init__.py`
-4. Wire into the relevant `Workflow` if needed
+1. Export from `melinoe/workflows/skills/__init__.py`
+1. Wire into the relevant `Workflow` if needed
 
----
+______________________________________________________________________
 
 ## Environment variables
 
@@ -129,16 +131,17 @@ Defined in `melinoe/settings.py` via `environs`. Required:
 
 Never access `os.environ` directly in business logic — go through `settings.py` or the `ModelConfig.api_key_env` indirection in `client.py`.
 
----
+______________________________________________________________________
 
 ## Output structure
 
 Results are written to `output/<timestamp>-<author>-<title>/`:
+
 - `cover.<ext>` — copy of the input cover image
 - `title_page.<ext>` — copy of the title page (if provided)
 - `result.json` — full JSON output with `cover_analysis`, `title_page_analysis`, `bibliographic_metadata`, `report_confidence`, and `notes`
 
----
+______________________________________________________________________
 
 ## What to avoid
 

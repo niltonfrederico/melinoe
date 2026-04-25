@@ -10,9 +10,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from melinoe.client import SUPPORTED_IMAGE_TYPES
-from melinoe.client import ModelConfig
-from melinoe.client import complete_json
+from melinoe.clients.ai import SUPPORTED_IMAGE_TYPES
+from melinoe.clients.ai import ModelConfig
+from melinoe.clients.ai import complete_json
 from melinoe.logger import step_log
 
 _MEMORY_DIR = Path(__file__).parent / "memories"

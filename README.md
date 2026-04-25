@@ -2,7 +2,7 @@
 
 Melinoe é um bot para Telegram que analisa fotos de capas de livros e retorna metadados bibliográficos detalhados: título, autor, ISBN, editora, sinopse, gêneros, prêmios e avaliações. Opcionalmente aceita também a folha de rosto para aumentar a precisão.
 
----
+______________________________________________________________________
 
 ## Como funciona
 
@@ -17,7 +17,7 @@ Usuário envia capa → Hecate (valida) → CoverAnalyzer (analisa visualmente)
 
 Cada etapa é uma **skill** independente, orquestrada pelo `BookwormWorkflow`. As skills de visão usam **Gemini Flash**; a síntese de memória usa **GPT-4o** (via GitHub Copilot); Claude Sonnet/Opus está disponível como alternativa.
 
----
+______________________________________________________________________
 
 ## Pré-requisitos
 
@@ -29,7 +29,7 @@ Cada etapa é uma **skill** independente, orquestrada pelo `BookwormWorkflow`. A
   - `GITHUB_COPILOT_API_KEY` — GitHub Models / Azure Inference
   - `TELEGRAM_BOT_TOKEN` — [@BotFather](https://t.me/BotFather)
 
----
+______________________________________________________________________
 
 ## Configuração
 
@@ -51,7 +51,7 @@ ANTHROPIC_API_KEY=<chave da Anthropic>
 GITHUB_COPILOT_API_KEY=<chave do GitHub Models>
 ```
 
----
+______________________________________________________________________
 
 ## Como executar
 
@@ -71,7 +71,7 @@ poetry run python scripts/cover_analyzer.py caminho/para/capa.jpg
 
 O resultado é impresso no terminal e salvo em `output/<timestamp>-<autor>-<titulo>/result.json`.
 
----
+______________________________________________________________________
 
 ## Estrutura do projeto
 
@@ -107,7 +107,7 @@ hallm9000/
 | `BookLookupSkill` | Gemini Flash | Agrega dados de múltiplas fontes e sintetiza os metadados |
 | `WriteMemorySkill` | GPT-4o | Persiste o resultado como entrada Markdown na base de memória |
 
----
+______________________________________________________________________
 
 ## Desenvolvimento
 
@@ -128,7 +128,7 @@ Os hooks de pre-commit (ruff) são instalados automaticamente via:
 poetry run pre-commit install
 ```
 
----
+______________________________________________________________________
 
 ## Licença
 

@@ -9,8 +9,8 @@ from typing import ClassVar
 
 import httpx
 
-from melinoe.client import ModelConfig
-from melinoe.client import complete_json
+from melinoe.clients.ai import ModelConfig
+from melinoe.clients.ai import complete_json
 from melinoe.workflows.base import Step
 from melinoe.workflows.skills.loader import load_skill
 

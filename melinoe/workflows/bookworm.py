@@ -10,6 +10,10 @@ from pathlib import Path
 from typing import Any
 from typing import ClassVar
 
+import melinoe.settings as settings
+from melinoe.clients.meilisearch import MeilisearchClient
+from melinoe.clients.meilisearch import build_book_document
+from melinoe.clients.seaweedfs import SeaweedFSClient
 from melinoe.logger import workflow_log
 from melinoe.workflows.base import Step
 from melinoe.workflows.base import Workflow
@@ -144,16 +148,31 @@ class BookwormWorkflow(Workflow):
         output_dir = _OUTPUT_DIR / folder_name
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Copy images into the output folder
+        # Copy images locally
         cover_dest = output_dir / f"cover{cover_path.suffix}"
         shutil.copy2(cover_path, cover_dest)
 
+        title_page_dest: Path | None = None
         if title_page_path is not None:
             title_page_dest = output_dir / f"title_page{title_page_path.suffix}"
             shutil.copy2(title_page_path, title_page_dest)
 
+        # Upload images to SeaweedFS
+        sfs = SeaweedFSClient(settings.SEAWEEDFS_FILER_URL)
+        cover_upload = sfs.upload(cover_dest, f"books/{folder_name}/cover{cover_path.suffix}")
+        result["cover_url"] = cover_upload.url
+
+        if title_page_dest is not None:
+            tp_upload = sfs.upload(title_page_dest, f"books/{folder_name}/title_page{title_page_dest.suffix}")
+            result["title_page_url"] = tp_upload.url
+
         json_path = output_dir / "result.json"
         json_path.write_text(json.dumps(result, indent=2, ensure_ascii=False))
+
+        # Index to Meilisearch
+        meili = MeilisearchClient(settings.MEILISEARCH_URL, settings.MEILISEARCH_API_KEY)
+        meili.index_book(build_book_document(folder_name, result))
+
         return output_dir
 
     _YEAR_IN_TITLE = re.compile(r"\b(19|20)\d{2}\b")

@@ -1,0 +1,38 @@
+services:
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    ports:
+      - "7700:7700"
+    environment:
+      MEILI_MASTER_KEY: ${MEILISEARCH_API_KEY:-dev-master-key}
+    volumes:
+      - meilisearch_data:/meili_data
+
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    command: server -filer=true -master.volumeSizeLimitMB=30
+    ports:
+      - "9333:9333"
+      - "8080:8080"
+      - "8888:8888"
+
+  bot:
+    build: .
+    command: watchfiles 'python -m melinoe.bot' melinoe/
+    volumes:
+      - .:/app
+      - /app/.venv
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GITHUB_COPILOT_API_KEY: ${GITHUB_COPILOT_API_KEY:-}
+      SEAWEEDFS_FILER_URL: http://seaweedfs:8888
+      MEILISEARCH_URL: http://meilisearch:7700
+      MEILISEARCH_API_KEY: ${MEILISEARCH_API_KEY:-dev-master-key}
+    depends_on:
+      - meilisearch
+      - seaweedfs
+
+volumes:
+  meilisearch_data:

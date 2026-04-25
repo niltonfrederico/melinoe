@@ -3,13 +3,13 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from melinoe.client import CLAUDE_OPUS
-from melinoe.client import CLAUDE_SONNET
-from melinoe.client import GEMINI_FLASH
-from melinoe.client import GEMINI_PRO
-from melinoe.client import GITHUB_COPILOT_GPT4O
-from melinoe.client import GITHUB_COPILOT_O1_REASONING
-from melinoe.client import ModelConfig
+from melinoe.clients.ai import CLAUDE_OPUS
+from melinoe.clients.ai import CLAUDE_SONNET
+from melinoe.clients.ai import GEMINI_FLASH
+from melinoe.clients.ai import GEMINI_PRO
+from melinoe.clients.ai import GITHUB_COPILOT_GPT4O
+from melinoe.clients.ai import GITHUB_COPILOT_O1_REASONING
+from melinoe.clients.ai import ModelConfig
 
 _WORKFLOWS_DIR = Path(__file__).parent.parent
 
