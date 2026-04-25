@@ -91,11 +91,20 @@ class ExecuteWebMentionsSkill(Step):
             urls_failed=failed,
         )
 
+    def _detect_encoding(self, raw: bytes, http_charset: str | None) -> str:
+        """Return encoding declared in <meta charset> or Content-Type header; fall back to utf-8."""
+        meta = re.search(rb'<meta[^>]+charset=["\']?\s*([^"\';\s>]+)', raw[:4096], re.IGNORECASE)
+        if meta:
+            return meta.group(1).decode("ascii", errors="ignore").strip()
+        return http_charset or "utf-8"
+
     def _process_url(self, client: httpx.Client, url: str) -> tuple[list[WebMention], list[str], bool]:
         try:
             response = client.get(url)
             response.raise_for_status()
-            content = self._extract_text(response.text)
+            encoding = self._detect_encoding(response.content, response.charset_encoding)
+            html = response.content.decode(encoding, errors="replace")
+            content = self._extract_text(html)
         except Exception:
             return [], [], False
 
@@ -127,11 +136,15 @@ class ExecuteWebMentionsSkill(Step):
         return results
 
     def _extract_text(self, html: str) -> str:
-        """Naive HTML tag stripper — removes tags and collapses whitespace."""
+        """Naive HTML tag stripper — preserves structural line breaks for poetry."""
         text = re.sub(r"<script[^>]*>.*?</script>", " ", html, flags=re.DOTALL | re.IGNORECASE)
         text = re.sub(r"<style[^>]*>.*?</style>", " ", text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
+        text = re.sub(r"</(p|div|li|h[1-6]|blockquote|tr)>", "\n", text, flags=re.IGNORECASE)
         text = re.sub(r"<[^>]+>", " ", text)
-        text = re.sub(r"\s+", " ", text).strip()
+        text = re.sub(r" +", " ", text)
+        text = re.sub(r"\n[ \t]+", "\n", text)
+        text = re.sub(r"\n{3,}", "\n\n", text).strip()
         return text[:_MAX_CONTENT_CHARS]
 
     def _analyze_content(self, url: str, content: str) -> tuple[list[WebMention], list[str]]:

@@ -1,5 +1,6 @@
 """SenhorDasHorasMortasWorkflow: scraper autônomo que rastreia menções a Nilton Manoel na web."""
 
+import re
 import uuid
 from dataclasses import asdict
 from datetime import UTC
@@ -153,15 +154,21 @@ class SenhorDasHorasMortasWorkflow(Workflow):
         workflow_log.info("SenhorDasHorasMortasWorkflow complete → session=%s", session_id)
         return result
 
+    _BYLINE_PATTERNS = re.compile(
+        r"e-mail\s*:|@|\bpor\s*:\s*\w|\bcoluna\b|\bcolunista\b|\bredação\b|\bredacao\b",
+        re.IGNORECASE,
+    )
+
     def _catalog_found_works(self, mentions: list[WebMention]) -> int:
         saved = 0
         for mention in mentions:
             if mention.confidence not in ("high", "medium"):
                 continue
             snippet = mention.snippet or ""
-            # A work snippet typically has line breaks (poem structure) or a competition attribution
-            is_work_like = "\n" in snippet or bool(mention.discovered_venues)
-            if not is_work_like or len(snippet) < 30:
+            if len(snippet) < 30:
+                continue
+            if self._BYLINE_PATTERNS.search(snippet):
+                workflow_log.debug("Skipping byline/metadata snippet from %s", mention.url)
                 continue
 
             try:
