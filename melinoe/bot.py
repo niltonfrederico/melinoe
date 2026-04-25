@@ -1,3 +1,5 @@
+"""Telegram bot: receives book cover photos and returns bibliographic analysis via BookwormWorkflow."""
+
 import asyncio
 import tempfile
 from collections.abc import Callable
@@ -8,6 +10,7 @@ from telegram import InlineKeyboardButton
 from telegram import InlineKeyboardMarkup
 from telegram import Update
 from telegram.ext import ApplicationBuilder
+from telegram.ext import BaseHandler
 from telegram.ext import CallbackQueryHandler
 from telegram.ext import CommandHandler
 from telegram.ext import ContextTypes
@@ -25,8 +28,11 @@ _WAITING_TITLE_PAGE = 1
 # user_data key where the cover temp path is stored between steps
 _COVER_PATH_KEY = "cover_tmp_path"
 
+# list is invariant, so we need this explicit base type to satisfy ConversationHandler's signature
+_BotHandlers = list[BaseHandler[Update, ContextTypes.DEFAULT_TYPE, object]]
 
-async def start(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
+
+async def start(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> object:
     if update.message is None:
         return
     await update.message.reply_text("Olá! Sou a Melinoe. Como posso ajudar?")
@@ -40,9 +46,11 @@ async def log_message(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> No
     bot_log.info(f"[{username}] {update.message.text}")
 
 
-async def handle_cover_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def handle_cover_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> object:
     """Step 1: receive cover photo, validate it, then ask for title page."""
     if update.message is None or not update.message.photo:
+        return ConversationHandler.END
+    if context.user_data is None:
         return ConversationHandler.END
 
     user = update.effective_user
@@ -66,10 +74,10 @@ async def handle_cover_photo(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return ConversationHandler.END
 
     # Store path for use in the next step; previous temp file (if any) is cleaned up
-    old_cover: str | None = context.user_data.get(_COVER_PATH_KEY)  # type: ignore[union-attr]
+    old_cover: str | None = context.user_data.get(_COVER_PATH_KEY)
     if old_cover:
         Path(old_cover).unlink(missing_ok=True)
-    context.user_data[_COVER_PATH_KEY] = str(tmp_path)  # type: ignore[index]
+    context.user_data[_COVER_PATH_KEY] = str(tmp_path)
 
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("Não tem folha de rosto", callback_data="no_title_page")]])
     await update.message.reply_text(
@@ -79,12 +87,14 @@ async def handle_cover_photo(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return _WAITING_TITLE_PAGE
 
 
-async def handle_title_page_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def handle_title_page_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> object:
     """Step 2a: user sent a title page photo — run workflow with both images."""
     if update.message is None or not update.message.photo:
         return _WAITING_TITLE_PAGE
+    if context.user_data is None:
+        return ConversationHandler.END
 
-    cover_path_str: str | None = context.user_data.get(_COVER_PATH_KEY)  # type: ignore[union-attr]
+    cover_path_str: str | None = context.user_data.get(_COVER_PATH_KEY)
     if not cover_path_str:
         await update.message.reply_text("Algo deu errado. Por favor, envie a capa do livro novamente.")
         return ConversationHandler.END
@@ -103,19 +113,23 @@ async def handle_title_page_photo(update: Update, context: ContextTypes.DEFAULT_
     finally:
         title_page_path.unlink(missing_ok=True)
         cover_path.unlink(missing_ok=True)
-        context.user_data.pop(_COVER_PATH_KEY, None)  # type: ignore[union-attr]
+        context.user_data.pop(_COVER_PATH_KEY, None)
 
     return ConversationHandler.END
 
 
-async def handle_no_title_page(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def handle_no_title_page(update: Update, context: ContextTypes.DEFAULT_TYPE) -> object:
     """Step 2b: user indicated there is no title page — run workflow with cover only."""
     query = update.callback_query
     if query is None:
         return ConversationHandler.END
     await query.answer()
 
-    cover_path_str: str | None = context.user_data.get(_COVER_PATH_KEY)  # type: ignore[union-attr]
+    if context.user_data is None:
+        await query.edit_message_text("Algo deu errado. Por favor, envie a capa do livro novamente.")
+        return ConversationHandler.END
+
+    cover_path_str: str | None = context.user_data.get(_COVER_PATH_KEY)
     if not cover_path_str:
         await query.edit_message_text("Algo deu errado. Por favor, envie a capa do livro novamente.")
         return ConversationHandler.END
@@ -127,7 +141,7 @@ async def handle_no_title_page(update: Update, context: ContextTypes.DEFAULT_TYP
         await _run_and_reply(update, context, cover_path, None)
     finally:
         cover_path.unlink(missing_ok=True)
-        context.user_data.pop(_COVER_PATH_KEY, None)  # type: ignore[union-attr]
+        context.user_data.pop(_COVER_PATH_KEY, None)
 
     return ConversationHandler.END
 
@@ -241,21 +255,26 @@ def _format_result(result: dict[str, Any]) -> str:
 def main() -> None:
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
-    conv_handler = ConversationHandler(
-        entry_points=[MessageHandler(filters.PHOTO, handle_cover_photo)],
-        states={
-            _WAITING_TITLE_PAGE: [
-                MessageHandler(filters.PHOTO, handle_title_page_photo),
-                CallbackQueryHandler(handle_no_title_page, pattern="^no_title_page$"),
-            ],
-        },
-        fallbacks=[CommandHandler("start", start)],
+    entry_points: _BotHandlers = [MessageHandler(filters.PHOTO, handle_cover_photo)]
+    title_page_handlers: _BotHandlers = [
+        MessageHandler(filters.PHOTO, handle_title_page_photo),
+        CallbackQueryHandler(handle_no_title_page, pattern="^no_title_page$"),
+    ]
+    fallback_handlers: _BotHandlers = [CommandHandler("start", start)]
+    # dict is invariant: cast states from dict[int, ...] to dict[object, ...] to satisfy
+    # ConversationHandler's signature; conv_handler cast satisfies Application.add_handler.
+    states: dict[object, _BotHandlers] = {_WAITING_TITLE_PAGE: title_page_handlers}  # type: ignore[dict-item]
+
+    conv_handler = ConversationHandler(  # type: ignore[invalid-argument-type]
+        entry_points=entry_points,
+        states=states,
+        fallbacks=fallback_handlers,
         per_user=True,
         per_chat=True,
     )
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(conv_handler)
+    app.add_handler(conv_handler)  # type: ignore[invalid-argument-type]
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, log_message))
     app.run_polling()
 

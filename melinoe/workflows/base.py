@@ -1,3 +1,6 @@
+"""Abstract base classes for workflow steps and workflow orchestrators."""
+
+import base64
 import os
 import tempfile
 import time
@@ -5,14 +8,22 @@ from abc import ABC
 from abc import abstractmethod
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
+from melinoe.client import SUPPORTED_IMAGE_TYPES
 from melinoe.client import ModelConfig
+from melinoe.client import complete_json
 from melinoe.logger import step_log
 
 _MEMORY_DIR = Path(__file__).parent / "memories"
 
 
 class Step(ABC):
+    """Atomic, reusable workflow step backed by a single LLM call.
+
+    Subclasses must set `model_config` and implement `validate()` and `execute()`.
+    """
+
     model_config: ModelConfig
     skills: list[str]
 
@@ -57,6 +68,40 @@ class Step(ABC):
     def __del__(self):
         self.cleanup_temp_files()
 
+    # --- image helpers ---
+
+    def _validate_image_file(self, path: Path | str, label: str = "Image") -> None:
+        """Raise if path does not exist or has an unsupported image extension."""
+        p = Path(path)
+        if not p.exists():
+            raise FileNotFoundError(f"{label} not found: {p}")
+        if p.suffix.lower() not in SUPPORTED_IMAGE_TYPES:
+            raise ValueError(f"Unsupported image format: {p.suffix}")
+
+    def _complete_image_json(
+        self,
+        path: Path | str,
+        system_prompt: str,
+        user_text: str,
+    ) -> dict[str, Any]:
+        """Base64-encode an image, send it to the configured model, and return the parsed JSON dict."""
+        p = Path(path)
+        image_b64 = base64.b64encode(self.load_file_bytes(p)).decode()
+        mime_type = SUPPORTED_IMAGE_TYPES[p.suffix.lower()]
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": user_text},
+                    {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{image_b64}"}},
+                ],
+            },
+        ]
+        return complete_json(self.model_config, messages)
+
+    # --- lifecycle ---
+
     @abstractmethod
     def validate(self, *args, **kwargs) -> None:
         pass
@@ -66,6 +111,7 @@ class Step(ABC):
         pass
 
     def run(self, *args, **kwargs):
+        """Validate inputs, execute, and return the result; logs timing on success and failure."""
         name = type(self).__name__
         step_log.info(f"{name} starting...")
         start = time.perf_counter()
@@ -82,6 +128,8 @@ class Step(ABC):
 
 
 class Workflow(ABC):
+    """Orchestrates an ordered sequence of Steps and manages persistent memory."""
+
     agent: str
     steps: list[Step]
 
@@ -90,6 +138,7 @@ class Workflow(ABC):
         self.validate_init()
 
     def _emit(self, message: str) -> None:
+        """Fire the progress callback if one is registered."""
         if self.on_progress is not None:
             self.on_progress(message)
 

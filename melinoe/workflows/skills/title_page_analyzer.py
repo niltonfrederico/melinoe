@@ -1,5 +1,5 @@
-import base64
-import json
+"""TitlePageAnalyzerSkill: extracts bibliographic data from a book's title page (folha de rosto)."""
+
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
@@ -7,23 +7,16 @@ from typing import Any
 from typing import ClassVar
 
 from melinoe.client import ModelConfig
-from melinoe.client import complete
 from melinoe.workflows.base import Step
 from melinoe.workflows.skills.loader import load_skill
 
 _DEFINITION = load_skill("title_page_analyzer")
 
-_MIME_MAP: dict[str, str] = {
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".png": "image/png",
-    ".webp": "image/webp",
-    ".gif": "image/gif",
-}
-
 
 @dataclass
 class CipData:
+    """Brazilian CIP (Cataloging in Publication) data block from the title page verso."""
+
     author: str | None
     title: str | None
     isbn: str | None
@@ -34,6 +27,8 @@ class CipData:
 
 @dataclass
 class TitlePageAnalysis:
+    """Bibliographic data extracted from a book's title page."""
+
     title: str | None
     subtitle: str | None
     author: list[str]
@@ -48,7 +43,7 @@ class TitlePageAnalysis:
     legal_deposit: str | None
     cip_data: CipData
     confidence: str
-    # convenience: merged authors as single string for downstream use
+    # Merged authors as a single string for downstream use
     author_string: str | None = field(init=False)
 
     def __post_init__(self) -> None:
@@ -56,46 +51,21 @@ class TitlePageAnalysis:
 
 
 class TitlePageAnalyzerSkill(Step):
+    """Transcribes title page data (ISBN, edition, publisher, CIP) without inference."""
+
     model_config: ModelConfig = _DEFINITION.model
     skills: ClassVar[list[str]] = ["title_page_analyzer"]
 
     def validate(self, file_path: Path | str, **kwargs: Any) -> None:
-        path = Path(file_path)
-        if not path.exists():
-            raise FileNotFoundError(f"Title page image not found: {path}")
-        if path.suffix.lower() not in _MIME_MAP:
-            raise ValueError(f"Unsupported image format: {path.suffix}")
+        self._validate_image_file(file_path, label="Title page image")
 
     def execute(self, file_path: Path | str, **kwargs: Any) -> TitlePageAnalysis:
-        path = Path(file_path)
-        image_b64 = base64.b64encode(self.load_file_bytes(path)).decode()
-        mime_type = _MIME_MAP[path.suffix.lower()]
-
-        messages: list[dict[str, Any]] = [
-            {"role": "system", "content": _DEFINITION.system_prompt},
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "Analyze this title page (folha de rosto) and return the structured JSON.",
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:{mime_type};base64,{image_b64}"},
-                    },
-                ],
-            },
-        ]
-
-        response = complete(self.model_config, messages, temperature=0.0, response_format={"type": "json_object"})
-        content = response.choices[0].message.content
-        if not content:
-            raise ValueError("Empty response from title page analysis model")
-
-        data: dict[str, Any] = json.loads(content)
+        data = self._complete_image_json(
+            file_path,
+            system_prompt=_DEFINITION.system_prompt,
+            user_text="Analyze this title page (folha de rosto) and return the structured JSON.",
+        )
         raw_cip: dict[str, Any] = data.get("cip_data") or {}
-
         return TitlePageAnalysis(
             title=data.get("title"),
             subtitle=data.get("subtitle"),

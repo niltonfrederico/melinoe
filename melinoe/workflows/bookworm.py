@@ -1,3 +1,5 @@
+"""BookwormWorkflow: orchestrates the full book identification and analysis pipeline."""
+
 import json
 import re
 import shutil

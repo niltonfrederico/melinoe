@@ -1,3 +1,5 @@
+"""BookLookupSkill: fetches book metadata from multiple sources and synthesizes it via LLM."""
+
 import json
 import re
 import urllib.parse
@@ -8,7 +10,7 @@ from typing import ClassVar
 import httpx
 
 from melinoe.client import ModelConfig
-from melinoe.client import complete
+from melinoe.client import complete_json
 from melinoe.workflows.base import Step
 from melinoe.workflows.skills.loader import load_skill
 
@@ -29,6 +31,8 @@ _SPECIAL_TITLE_KEYWORDS = re.compile(
 
 @dataclass
 class BookMetadata:
+    """Consolidated bibliographic metadata produced by multi-source synthesis."""
+
     title: str
     author: str | None
     isbn_13: str | None
@@ -48,6 +52,8 @@ class BookMetadata:
 
 
 class BookLookupSkill(Step):
+    """Aggregates Open Library, Google Books, Estante Virtual, Skoob, and web search results."""
+
     model_config: ModelConfig = _DEFINITION.model
     skills: ClassVar[list[str]] = ["book_lookup"]
 
@@ -150,7 +156,7 @@ class BookLookupSkill(Step):
         except Exception:
             return None
 
-    # --- synthesis via Gemini ---
+    # --- synthesis via LLM ---
 
     def _synthesize(
         self,
@@ -209,12 +215,9 @@ class BookLookupSkill(Step):
             },
         ]
 
-        response = complete(self.model_config, messages, temperature=0.0, response_format={"type": "json_object"})
-        content = response.choices[0].message.content or ""
-
         try:
-            data: dict[str, Any] = json.loads(content)
-        except json.JSONDecodeError:
+            data = complete_json(self.model_config, messages)
+        except (ValueError, Exception):
             data = {}
 
         if "error" in data:

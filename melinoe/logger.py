@@ -1,8 +1,7 @@
+"""Structured, color-coded console loggers for each layer of the workflow stack."""
+
 import logging
 import sys
-import time
-from collections.abc import Generator
-from contextlib import contextmanager
 
 _RESET = "\033[0m"
 _BOLD = "\033[1m"
@@ -53,33 +52,3 @@ workflow_log = _make_logger("workflow")
 step_log = _make_logger("step")
 llm_log = _make_logger("llm")
 bot_log = _make_logger("bot")
-
-
-@contextmanager
-def timed_step(name: str) -> Generator[None]:
-    step_log.info(f"{name} starting...")
-    start = time.perf_counter()
-    try:
-        yield
-    except Exception as exc:
-        elapsed = time.perf_counter() - start
-        step_log.error(f"{name} failed after {elapsed:.2f}s — {exc}")
-        raise
-    else:
-        elapsed = time.perf_counter() - start
-        step_log.info(f"{name} done ({elapsed:.2f}s)")
-
-
-@contextmanager
-def timed_workflow(name: str) -> Generator[None]:
-    workflow_log.info(f"{_BOLD}{name}{_RESET} starting")
-    start = time.perf_counter()
-    try:
-        yield
-    except Exception as exc:
-        elapsed = time.perf_counter() - start
-        workflow_log.error(f"{name} failed after {elapsed:.2f}s — {exc}")
-        raise
-    else:
-        elapsed = time.perf_counter() - start
-        workflow_log.info(f"{_BOLD}{name}{_RESET} completed in {elapsed:.2f}s")

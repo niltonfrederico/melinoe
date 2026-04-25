@@ -1,28 +1,21 @@
-import base64
-import json
+"""CoverAnalyzerSkill: extracts visual and contextual metadata from a book cover image."""
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from typing import ClassVar
 
 from melinoe.client import ModelConfig
-from melinoe.client import complete
 from melinoe.workflows.base import Step
 from melinoe.workflows.skills.loader import load_skill
 
 _DEFINITION = load_skill("cover_analyzer")
 
-_MIME_MAP: dict[str, str] = {
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".png": "image/png",
-    ".webp": "image/webp",
-    ".gif": "image/gif",
-}
-
 
 @dataclass
 class CoverAnalysis:
+    """Structured visual analysis of a book cover."""
+
     title: str | None
     subtitle: str | None
     author: str | None
@@ -39,41 +32,20 @@ class CoverAnalysis:
 
 
 class CoverAnalyzerSkill(Step):
+    """Analyzes book cover images to extract title, author, genre, design, and visual metadata."""
+
     model_config: ModelConfig = _DEFINITION.model
     skills: ClassVar[list[str]] = ["cover_analyzer"]
 
     def validate(self, file_path: Path | str, **kwargs: Any) -> None:
-        path = Path(file_path)
-        if not path.exists():
-            raise FileNotFoundError(f"Cover image not found: {path}")
-        if path.suffix.lower() not in _MIME_MAP:
-            raise ValueError(f"Unsupported image format: {path.suffix}")
+        self._validate_image_file(file_path, label="Cover image")
 
     def execute(self, file_path: Path | str, **kwargs: Any) -> CoverAnalysis:
-        path = Path(file_path)
-        image_b64 = base64.b64encode(self.load_file_bytes(path)).decode()
-        mime_type = _MIME_MAP[path.suffix.lower()]
-
-        messages: list[dict[str, Any]] = [
-            {"role": "system", "content": _DEFINITION.system_prompt},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "Analyze this book cover and return the structured JSON."},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:{mime_type};base64,{image_b64}"},
-                    },
-                ],
-            },
-        ]
-
-        response = complete(self.model_config, messages, temperature=0.0, response_format={"type": "json_object"})
-        content = response.choices[0].message.content
-        if not content:
-            raise ValueError("Empty response from cover analysis model")
-
-        data: dict[str, Any] = json.loads(content)
+        data = self._complete_image_json(
+            file_path,
+            system_prompt=_DEFINITION.system_prompt,
+            user_text="Analyze this book cover and return the structured JSON.",
+        )
         return CoverAnalysis(
             title=data.get("title"),
             subtitle=data.get("subtitle"),

@@ -1,3 +1,5 @@
+"""WriteMemorySkill: persists a completed book report as a Markdown memory entry."""
+
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -5,7 +7,7 @@ from typing import Any
 from typing import ClassVar
 
 from melinoe.client import ModelConfig
-from melinoe.client import complete
+from melinoe.client import complete_json
 from melinoe.workflows.base import Step
 from melinoe.workflows.skills.loader import load_skill
 
@@ -15,11 +17,15 @@ _MEMORY_DIR = Path(__file__).parent.parent / "memories"
 
 @dataclass
 class WrittenMemory:
+    """Reference to a memory entry saved to disk."""
+
     memory_key: str
     memory_path: Path
 
 
 class WriteMemorySkill(Step):
+    """Generates a structured Markdown memory file from a book analysis report."""
+
     model_config: ModelConfig = _DEFINITION.model
     skills: ClassVar[list[str]] = ["write_memory"]
 
@@ -35,12 +41,9 @@ class WriteMemorySkill(Step):
             {"role": "user", "content": json.dumps(report, ensure_ascii=False)},
         ]
 
-        response = complete(self.model_config, messages, temperature=0.0, response_format={"type": "json_object"})
-        content = response.choices[0].message.content or ""
-
         try:
-            data: dict[str, Any] = json.loads(content)
-        except json.JSONDecodeError:
+            data = complete_json(self.model_config, messages)
+        except (ValueError, Exception):
             data = {}
 
         memory_key: str = data.get("memory_key") or self._fallback_key(report)

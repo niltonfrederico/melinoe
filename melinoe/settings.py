@@ -1,3 +1,5 @@
+"""Application settings loaded from environment variables via environs."""
+
 import environs
 
 env = environs.Env()

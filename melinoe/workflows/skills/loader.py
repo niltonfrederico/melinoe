@@ -1,3 +1,5 @@
+"""Loads skill, agent, and soul definitions from Markdown files with YAML frontmatter."""
+
 from dataclasses import dataclass
 from pathlib import Path
 
