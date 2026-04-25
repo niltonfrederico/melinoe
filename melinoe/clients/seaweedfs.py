@@ -15,18 +15,20 @@ class UploadResult:
 
 
 class SeaweedFSClient:
-    def __init__(self, filer_url: str) -> None:
+    def __init__(self, filer_url: str, public_url: str | None = None) -> None:
         self._filer_url = filer_url.rstrip("/")
+        self._public_url = (public_url or filer_url).rstrip("/")
 
     def upload(self, path: Path, remote_path: str) -> UploadResult:
         remote_path = remote_path.lstrip("/")
-        url = f"{self._filer_url}/{remote_path}"
+        upload_url = f"{self._filer_url}/{remote_path}"
+        public_url = f"{self._public_url}/{remote_path}"
         content_type = _mime_for(path.suffix)
         with httpx.Client(timeout=30) as client, path.open("rb") as f:
-            response = client.put(url, content=f.read(), headers={"Content-Type": content_type})
+            response = client.put(upload_url, content=f.read(), headers={"Content-Type": content_type})
         response.raise_for_status()
         workflow_log.info(f"SeaweedFS ← {remote_path} ({response.status_code})")
-        return UploadResult(remote_path=remote_path, url=url)
+        return UploadResult(remote_path=remote_path, url=public_url)
 
 
 _MIME_TYPES: dict[str, str] = {

@@ -1,5 +1,6 @@
 """Meilisearch client for indexing book analysis results."""
 
+import re
 from typing import Any
 
 import meilisearch
@@ -48,12 +49,17 @@ class MeilisearchClient:
         return index
 
 
+def _sanitize_id(folder_name: str) -> str:
+    # Meilisearch IDs only allow a-z A-Z 0-9, hyphens, and underscores
+    return re.sub(r"[^a-zA-Z0-9\-_]", "_", folder_name)
+
+
 def build_book_document(folder_name: str, result: dict[str, Any]) -> dict[str, Any]:
     """Flatten result.json into a Meilisearch-optimized document."""
     meta: dict[str, Any] = result.get("bibliographic_metadata") or {}
     ratings: dict[str, Any] = meta.get("ratings") or {}
     return {
-        "id": folder_name,
+        "id": _sanitize_id(folder_name),
         "title": meta.get("title"),
         "author": meta.get("author"),
         "isbn_13": meta.get("isbn_13"),

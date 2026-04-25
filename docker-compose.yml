@@ -13,7 +13,7 @@ services:
     command: server -filer=true -master.volumeSizeLimitMB=30
     ports:
       - "9333:9333"
-      - "8081:8080"
+      - "7701:8080"
       - "8888:8888"
 
   bot:
@@ -28,6 +28,7 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GITHUB_COPILOT_API_KEY: ${GITHUB_COPILOT_API_KEY:-}
       SEAWEEDFS_FILER_URL: http://seaweedfs:8888
+      SEAWEEDFS_PUBLIC_URL: ${SEAWEEDFS_PUBLIC_URL:-http://localhost:8888}
       MEILISEARCH_URL: http://meilisearch:7700
       MEILISEARCH_API_KEY: ${MEILISEARCH_API_KEY:-dev-master-key}
     depends_on:

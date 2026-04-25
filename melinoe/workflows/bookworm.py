@@ -158,7 +158,7 @@ class BookwormWorkflow(Workflow):
             shutil.copy2(title_page_path, title_page_dest)
 
         # Upload images to SeaweedFS
-        sfs = SeaweedFSClient(settings.SEAWEEDFS_FILER_URL)
+        sfs = SeaweedFSClient(settings.SEAWEEDFS_FILER_URL, settings.SEAWEEDFS_PUBLIC_URL or None)
         cover_upload = sfs.upload(cover_dest, f"books/{folder_name}/cover{cover_path.suffix}")
         result["cover_url"] = cover_upload.url
 
