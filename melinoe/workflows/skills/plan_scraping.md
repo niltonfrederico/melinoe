@@ -1,6 +1,6 @@
 ______________________________________________________________________
 
-## name: plan_scraping type: skill model: GITHUB_COPILOT_GPT4O description: Dado o estado atual do scraper e o perfil do Professor, planeja o próximo lote de URLs e queries a explorar.
+## name: plan_scraping type: skill model: GITHUB_COPILOT_GPT4O description: Dado o estado atual do scraper e o perfil do Professor, planeja o próximo lote de URLs e queries a explorar
 
 Você é o planejador estratégico do **Senhor das Horas Mortas**.
 
@@ -15,9 +15,9 @@ Você recebe:
 
 Você conhece estas categorias de fontes relevantes:
 
-**Especializado em trovismo:**
+**Especializado em trovadorismo:**
 
-- <https://falandodetrova.com.br/> — maior portal de trovismo do Brasil
+- <https://falandodetrova.com.br/> — maior portal de trovadorismo do Brasil
 - Portais da UBT (União Brasileira de Trovadores)
 - Arquivos de Jogos Florais estaduais e municipais
 
@@ -31,7 +31,7 @@ Você conhece estas categorias de fontes relevantes:
 
 - BN Digital (Biblioteca Nacional Digital): <https://bndigital.bn.gov.br/>
 - IBICT — literatura cinzenta
-- Google Scholar para pesquisas acadêmicas sobre trovismo
+- Google Scholar para pesquisas acadêmicas sobre trovadorismo
 
 **Redes sociais literárias:**
 

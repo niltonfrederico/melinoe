@@ -196,7 +196,7 @@ He signed his works as **Nilton Manoel** (without the full surname). The full le
 ### Associations
 
 - **UBT** — União Brasileira de Trovadores (correct name; not UBRATT, not ABT)
-- **Jogos Florais** — trovismo competitions he participated in
+- **Jogos Florais** — trovadorismo competitions he participated in
 
 ### Naming convention in code
 

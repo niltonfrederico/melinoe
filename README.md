@@ -126,9 +126,14 @@ ______________________________________________________________________
 hallm9000/
 ├── melinoe/
 │   ├── bot.py               # Handlers do Telegram (máquina de estados)
-│   ├── client.py            # Abstração de LLM (litellm), modelos pré-configurados
 │   ├── logger.py            # Loggers coloridos por camada
 │   ├── settings.py          # Variáveis de ambiente
+│   ├── worker.py            # ARQ WorkerSettings + tarefas assíncronas
+│   ├── clients/
+│   │   ├── ai.py            # Abstração de LLM (litellm)
+│   │   ├── meilisearch.py   # Índices books + nilton_works
+│   │   ├── redis.py         # Pool ARQ
+│   │   └── seaweedfs.py     # Armazenamento de arquivos
 │   └── workflows/
 │       ├── base.py               # Classes abstratas Step e Workflow
 │       ├── bookworm.py           # Orquestrador — livros gerais
@@ -138,15 +143,7 @@ hallm9000/
 │       ├── memories/             # Base de conhecimento persistida (.md por livro/perfil)
 │       ├── skills/               # Skills individuais (Python + prompt .md)
 │       └── souls/                # Personas / system prompts (.md)
-├── melinoe/
-│   ├── worker.py            # ARQ WorkerSettings + tarefas assíncronas
-│   ├── clients/
-│   │   ├── ai.py            # Abstração de LLM (litellm)
-│   │   ├── meilisearch.py   # Índices books + nilton_works
-│   │   ├── redis.py         # Pool ARQ
-│   │   └── seaweedfs.py     # Armazenamento de arquivos
-├── scripts/
-│   └── cover_analyzer.py    # CLI de uso avulso
+├── icarus/                  # CLI Typer (icarus entry point)
 ├── input/                   # Imagens de entrada (uso manual)
 ├── output/                  # Resultados gerados (JSON + imagens)
 └── pyproject.toml
@@ -209,4 +206,10 @@ ______________________________________________________________________
 
 ## Licença
 
-Uso interno — sem licença open-source definida.
+Distribuído sob a [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0).
+
+______________________________________________________________________
+
+## Aviso sobre uso de IA
+
+Este projeto é inteiramente assistido por IA. Veja [AI_DISCLAIMER.md](AI_DISCLAIMER.md) para o contexto completo — por que essa escolha foi feita e como você pode ajudar se quiser.
