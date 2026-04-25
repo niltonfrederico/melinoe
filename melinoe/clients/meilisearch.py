@@ -37,6 +37,10 @@ class MeilisearchClient:
         self._index.add_documents([document])
         workflow_log.info(f"Meilisearch ← indexed '{document.get('title')}' (id={document.get('id')})")
 
+    def delete_book(self, book_id: str) -> None:
+        self._index.delete_document(book_id)
+        workflow_log.info(f"Meilisearch ← deleted id={book_id}")
+
     def _ensure_index(self) -> meilisearch.index.Index:
         try:
             self._client.create_index(self.INDEX_NAME, {"primaryKey": "id"})
