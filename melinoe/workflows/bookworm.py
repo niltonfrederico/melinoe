@@ -1,21 +1,25 @@
 import json
 import re
+import shutil
 from dataclasses import asdict
 from dataclasses import replace as dc_replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from typing import ClassVar
 
 from melinoe.logger import workflow_log
 from melinoe.workflows.base import Step
 from melinoe.workflows.base import Workflow
-from melinoe.workflows.skills.book_lookup import BookMetadata
 from melinoe.workflows.skills.book_lookup import BookLookupSkill
+from melinoe.workflows.skills.book_lookup import BookMetadata
 from melinoe.workflows.skills.cover_analyzer import CoverAnalyzerSkill
 from melinoe.workflows.skills.hecate import HecateSkill
 from melinoe.workflows.skills.load_relevant_memory import LoadRelevantMemorySkill
 from melinoe.workflows.skills.loader import load_agent
 from melinoe.workflows.skills.loader import load_soul
+from melinoe.workflows.skills.title_page_analyzer import TitlePageAnalysis
+from melinoe.workflows.skills.title_page_analyzer import TitlePageAnalyzerSkill
 from melinoe.workflows.skills.write_memory import WriteMemorySkill
 
 
@@ -35,12 +39,14 @@ class BookwormWorkflow(Workflow):
         self._hecate = HecateSkill()
         self._load_memory = LoadRelevantMemorySkill()
         self._cover_analyzer = CoverAnalyzerSkill()
+        self._title_page_analyzer = TitlePageAnalyzerSkill()
         self._book_lookup = BookLookupSkill()
         self._write_memory = WriteMemorySkill()
         self.steps: list[Step] = [
             self._hecate,
             self._load_memory,
             self._cover_analyzer,
+            self._title_page_analyzer,
             self._book_lookup,
             self._write_memory,
         ]
@@ -50,8 +56,13 @@ class BookwormWorkflow(Workflow):
     def system_prompt(self) -> str:
         return f"{self._soul_def.system_prompt}\n\n---\n\n{self._agent_def.system_prompt}"
 
-    def run(self, file_path: Path | str) -> dict[str, Any]:
+    def run(
+        self,
+        file_path: Path | str,
+        title_page_path: Path | str | None = None,
+    ) -> dict[str, Any]:
         file_path = Path(file_path)
+        title_page_path = Path(title_page_path) if title_page_path is not None else None
         workflow_log.info(f"BookwormWorkflow → {file_path.name}")
 
         self._emit("Verificando se é uma capa de livro...")
@@ -70,6 +81,14 @@ class BookwormWorkflow(Workflow):
             f"Cover identified: title={cover.title!r}, author={cover.author!r}, confidence={cover.confidence}"
         )
 
+        title_page: TitlePageAnalysis | None = None
+        if title_page_path is not None:
+            self._emit("Analisando a folha de rosto...")
+            title_page = self._title_page_analyzer.run(title_page_path)
+            workflow_log.info(
+                f"Title page analyzed: isbn_13={title_page.isbn_13!r}, confidence={title_page.confidence}"
+            )
+
         self._emit("Consultando minhas memórias...")
         memories = self._load_memory.run(title=cover.title, author=cover.author)
 
@@ -84,6 +103,7 @@ class BookwormWorkflow(Workflow):
             title=cover.title,
             author=cover.author,
             memory_context=memories.context or None,
+            title_page_data=asdict(title_page) if title_page is not None else None,
         )
 
         workflow_log.info(f"Metadata fetched: confidence={metadata.confidence}")
@@ -92,6 +112,7 @@ class BookwormWorkflow(Workflow):
 
         result: dict[str, Any] = {
             "cover_analysis": asdict(cover),
+            "title_page_analysis": asdict(title_page) if title_page is not None else None,
             "bibliographic_metadata": asdict(metadata),
             "report_confidence": self._merged_confidence(cover.confidence, metadata.confidence),
             "notes": memories.context or None,
@@ -100,26 +121,43 @@ class BookwormWorkflow(Workflow):
         self._emit("Registrando na memória...")
         self._write_memory.run(report=result)
 
-        output_path = self._write_output(result, cover.title, cover.author)
-        result["output_file"] = str(output_path)
+        output_dir = self._write_output(result, cover.title, cover.author, file_path, title_page_path)
+        result["output_dir"] = str(output_dir)
 
-        workflow_log.info(f"Output saved → {output_path}")
+        workflow_log.info(f"Output saved → {output_dir}")
         return result
 
-    def _write_output(self, result: dict[str, Any], title: str, author: str | None) -> Path:
-        _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    def _write_output(
+        self,
+        result: dict[str, Any],
+        title: str,
+        author: str | None,
+        cover_path: Path,
+        title_page_path: Path | None,
+    ) -> Path:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         author_slug = (author or "unknown").lower().replace(" ", "-")[:30]
         title_slug = title.lower().replace(" ", "-")[:50]
-        filename = f"{timestamp}-{author_slug}-{title_slug}.json"
-        output_path = _OUTPUT_DIR / filename
-        output_path.write_text(json.dumps(result, indent=2, ensure_ascii=False))
-        return output_path
+        folder_name = f"{timestamp}-{author_slug}-{title_slug}"
+        output_dir = _OUTPUT_DIR / folder_name
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Copy images into the output folder
+        cover_dest = output_dir / f"cover{cover_path.suffix}"
+        shutil.copy2(cover_path, cover_dest)
+
+        if title_page_path is not None:
+            title_page_dest = output_dir / f"title_page{title_page_path.suffix}"
+            shutil.copy2(title_page_path, title_page_dest)
+
+        json_path = output_dir / "result.json"
+        json_path.write_text(json.dumps(result, indent=2, ensure_ascii=False))
+        return output_dir
 
     _YEAR_IN_TITLE = re.compile(r"\b(19|20)\d{2}\b")
     _EDITION_IN_TITLE = re.compile(r"\b\d+[aª°]?\s*(ed(i[çc][aã]o)?|edition)\b", re.IGNORECASE)
     _ORDINAL_IN_TITLE = re.compile(r"\b\d+[aª°]\b")
-    _COMPILATION_TYPES = {"antologia", "premiação"}
+    _COMPILATION_TYPES: ClassVar[frozenset[str]] = frozenset({"antologia", "premiação"})
 
     def _enrich_compilation_title(self, metadata: BookMetadata, subtitle: str | None) -> BookMetadata:
         if metadata.content_type not in self._COMPILATION_TYPES:

@@ -56,7 +56,7 @@ bot_log = _make_logger("bot")
 
 
 @contextmanager
-def timed_step(name: str) -> Generator[None, None, None]:
+def timed_step(name: str) -> Generator[None]:
     step_log.info(f"{name} starting...")
     start = time.perf_counter()
     try:
@@ -71,7 +71,7 @@ def timed_step(name: str) -> Generator[None, None, None]:
 
 
 @contextmanager
-def timed_workflow(name: str) -> Generator[None, None, None]:
+def timed_workflow(name: str) -> Generator[None]:
     workflow_log.info(f"{_BOLD}{name}{_RESET} starting")
     start = time.perf_counter()
     try:

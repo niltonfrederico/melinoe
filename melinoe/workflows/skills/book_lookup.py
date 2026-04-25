@@ -56,7 +56,12 @@ class BookLookupSkill(Step):
             raise ValueError("Book title is required for lookup")
 
     def execute(
-        self, title: str, author: str | None = None, memory_context: str | None = None, **kwargs: Any
+        self,
+        title: str,
+        author: str | None = None,
+        memory_context: str | None = None,
+        title_page_data: dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> BookMetadata:
         sources: dict[str, Any] = {}
 
@@ -70,7 +75,7 @@ class BookLookupSkill(Step):
         else:
             sources["web_search"] = None
 
-        return self._synthesize(title, author, sources, memory_context=memory_context)
+        return self._synthesize(title, author, sources, memory_context=memory_context, title_page_data=title_page_data)
 
     # --- special case detection ---
 
@@ -148,7 +153,12 @@ class BookLookupSkill(Step):
     # --- synthesis via Gemini ---
 
     def _synthesize(
-        self, title: str, author: str | None, sources: dict[str, Any], memory_context: str | None = None
+        self,
+        title: str,
+        author: str | None,
+        sources: dict[str, Any],
+        memory_context: str | None = None,
+        title_page_data: dict[str, Any] | None = None,
     ) -> BookMetadata:
         ol = sources.get("open_library") or {}
         gb = sources.get("google_books") or {}
@@ -178,6 +188,13 @@ class BookLookupSkill(Step):
                 "",
                 "## Web Search / DuckDuckGo (HTML excerpt)",
                 web_html[:3000],
+            ]
+
+        if title_page_data:
+            context_parts += [
+                "",
+                "## Title Page / Folha de Rosto (structured JSON)",
+                json.dumps(title_page_data, ensure_ascii=False),
             ]
 
         if memory_context:
