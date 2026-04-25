@@ -1,5 +1,6 @@
 """ExecuteWebMentionsSkill: visita URLs, extrai conteúdo e analisa menções a Nilton Manoel."""
 
+import ipaddress
 import json
 import re
 import urllib.parse
@@ -24,6 +25,33 @@ _TIMEOUT = 15.0
 _MAX_CONTENT_CHARS = 8000  # cap page content to avoid exceeding context limits
 _DDG_URL = "https://html.duckduckgo.com/html/"
 _DDG_MAX_RESULTS = 10
+
+_PRIVATE_HOSTNAMES = frozenset({"localhost", "0.0.0.0", "ip6-localhost", "ip6-loopback"})
+
+
+def _is_safe_url(url: str) -> bool:
+    """Return True only for public http/https URLs.
+
+    Rejects non-HTTP schemes, bare hostnames, private/loopback IP literals, and
+    .local mDNS hostnames.  This is a defence-in-depth guard against SSRF via
+    LLM-generated or page-injected URLs.
+    """
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception:
+        return False
+    if parsed.scheme not in ("http", "https"):
+        return False
+    hostname = parsed.hostname
+    if not hostname:
+        return False
+    if hostname in _PRIVATE_HOSTNAMES or hostname.endswith(".local"):
+        return False
+    try:
+        addr = ipaddress.ip_address(hostname)
+        return addr.is_global
+    except ValueError:
+        return True
 
 
 @dataclass
@@ -70,19 +98,19 @@ class ExecuteWebMentionsSkill(Step):
 
         with httpx.Client(headers=_HEADERS, timeout=_TIMEOUT, follow_redirects=True) as client:
             for url in plan.next_urls:
-                if url in visited_set:
+                if url in visited_set or not _is_safe_url(url):
                     continue
                 mentions, discovered, ok = self._process_url(client, url)
                 if ok:
                     visited.append(url)
                     all_mentions.extend(mentions)
-                    all_discovered.extend(discovered)
+                    all_discovered.extend(d for d in discovered if _is_safe_url(d))
                 else:
                     failed.append(url)
 
             for query in plan.search_queries:
                 search_urls = self._search_duckduckgo(client, query)
-                all_discovered.extend(u for u in search_urls if u not in visited_set)
+                all_discovered.extend(u for u in search_urls if u not in visited_set and _is_safe_url(u))
 
         return WebMentionsResult(
             mentions=all_mentions,
@@ -125,12 +153,15 @@ class ExecuteWebMentionsSkill(Step):
         raw_urls = re.findall(r'href="(/l/\?[^"]+|https?://[^"]+)"', response.text)
         results: list[str] = []
         for raw in raw_urls:
+            candidate: str | None = None
             if raw.startswith("http"):
-                results.append(raw)
+                candidate = raw
             elif raw.startswith("/l/?"):
                 parsed = urllib.parse.parse_qs(urllib.parse.urlparse(raw).query)
                 if "uddg" in parsed:
-                    results.append(urllib.parse.unquote(parsed["uddg"][0]))
+                    candidate = urllib.parse.unquote(parsed["uddg"][0])
+            if candidate is not None and _is_safe_url(candidate):
+                results.append(candidate)
             if len(results) >= _DDG_MAX_RESULTS:
                 break
         return results
