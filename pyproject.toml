@@ -13,6 +13,7 @@ dependencies = [
     "environs (>=15.0.1,<16.0.0)",
     "python-telegram-bot (>=22.7,<23.0)",
     "meilisearch (>=0.31.0)",
+    "arq (>=0.28.0,<0.29.0)",
 ]
 
 

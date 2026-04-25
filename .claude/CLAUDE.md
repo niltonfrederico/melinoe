@@ -4,6 +4,11 @@
 
 Melinoe is a Telegram bot that identifies books from cover photos. It uses a pipeline of LLM-backed skills orchestrated by `BookwormWorkflow`. The name `hallm9000` is the repo slug; the Python package is `melinoe`.
 
+Melinoe also has two specialized agents for the literary work of **Nilton Manoel de Andrade Teixeira** (O Professor):
+
+- **KardoNavalhaWorkflow** — catalogs physical covers of his works into the `nilton_works` Meilisearch index
+- **SenhorDasHorasMortasWorkflow** — autonomous ARQ-scheduled web scraper that maps his digital presence and enriches `professor_profile.md`
+
 ______________________________________________________________________
 
 ## Tech stack
@@ -12,6 +17,7 @@ ______________________________________________________________________
 - **Poetry** — dependency manager; never use pip directly
 - **litellm** — unified LLM client abstraction (`melinoe/client.py`)
 - **python-telegram-bot** — async Telegram integration
+- **arq** — asyncio-native Redis task queue for background jobs (worker: `melinoe/worker.py`)
 - **ruff** — linter and formatter (line length 120, absolute imports only)
 - **ty** — type checker
 
@@ -89,6 +95,9 @@ ______________________________________________________________________
 # Run the bot
 poetry run python -m melinoe.bot
 
+# Run the ARQ worker (Senhor das Horas Mortas cron + KardoNavalha enqueue)
+poetry run python -m arq melinoe.worker.WorkerSettings
+
 # Run the CLI script
 poetry run python scripts/cover_analyzer.py path/to/cover.jpg
 
@@ -128,8 +137,56 @@ Defined in `melinoe/settings.py` via `environs`. Required:
 - `GEMINI_API_KEY`
 - `ANTHROPIC_API_KEY` (optional, for Claude models)
 - `GITHUB_COPILOT_API_KEY`
+- `REDIS_URL` (default: `redis://localhost:6379`)
+- `MEILISEARCH_URL` + `MEILISEARCH_API_KEY`
 
 Never access `os.environ` directly in business logic — go through `settings.py` or the `ModelConfig.api_key_env` indirection in `client.py`.
+
+______________________________________________________________________
+
+## Professor agents — Nilton Manoel de Andrade Teixeira
+
+### Identity disambiguation — three writers named Nilton
+
+There are three writers named Nilton in the same family. Never confuse them:
+
+| Name | Relation | Role in this system |
+|---|---|---|
+| **Nilton Manoel de Andrade Teixeira** | O Professor (the father) | **Target** — all professor\_ code refers to him |
+| **Nilton da Costa** | Grandfather — also a writer | Out of scope — do not catalog |
+| **Nilton Frederico** | Son of Nilton Manoel — also a writer | Out of scope — do not catalog |
+
+He signed his works as **Nilton Manoel** (without the full surname). The full legal name appears in prompts for disambiguation confidence.
+
+### Pseudonyms
+
+- **Kardo Navalha** — used in some works and as agent persona name
+- **Senhor das Horas Mortas** — used in some works and as scraper agent persona name
+
+### Work types
+
+`trova | haicai | aldravia | soneto | conto | cronica | jornal | pesquisa | poesia | poema | entrevista | jogo_floral | manuscrito | outro`
+
+### Associations
+
+- **UBT** — União Brasileira de Trovadores (correct name; not UBRATT, not ABT)
+- **Jogos Florais** — trovismo competitions he participated in
+
+### Naming convention in code
+
+- All Python identifiers use `professor`: `ProfessorDetectorSkill`, `professor_classifier.py`, `professor_profile.md`, etc.
+- "Nilton Manoel" / "O Professor" only appears inside `.md` system prompts and prose
+- `KardoNavalhaWorkflow` and `SenhorDasHorasMortasWorkflow` are proper names — kept as-is
+
+### Meilisearch indexes
+
+- `books` — existing index for general book catalog
+- `nilton_works` — new index for Professor's work catalog (`NiltonWorksMeilisearchClient`)
+
+### ARQ background jobs
+
+- `scrape_task` — runs `SenhorDasHorasMortasWorkflow`; triggered by cron (03:00 UTC daily) or by `KardoNavalhaWorkflow` after a new work is cataloged
+- Worker entry point: `poetry run python -m arq melinoe.worker.WorkerSettings`
 
 ______________________________________________________________________
 
@@ -140,6 +197,8 @@ Results are written to `output/<timestamp>-<author>-<title>/`:
 - `cover.<ext>` — copy of the input cover image
 - `title_page.<ext>` — copy of the title page (if provided)
 - `result.json` — full JSON output with `cover_analysis`, `title_page_analysis`, `bibliographic_metadata`, `report_confidence`, and `notes`
+
+Professor works write to `output/professor/<timestamp>-professor-<type>-<title>/` with the same structure plus `catalog` and `classification` fields.
 
 ______________________________________________________________________
 

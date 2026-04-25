@@ -2,20 +2,49 @@
 
 Melinoe é um bot para Telegram que analisa fotos de capas de livros e retorna metadados bibliográficos detalhados: título, autor, ISBN, editora, sinopse, gêneros, prêmios e avaliações. Opcionalmente aceita também a folha de rosto para aumentar a precisão.
 
+Melinoe também possui dois agentes especializados para catalogar e rastrear a obra literária de **Nilton Manoel de Andrade Teixeira** (O Professor), escritor underground de Ribeirão Preto, SP.
+
 ______________________________________________________________________
 
 ## Como funciona
 
+### Fluxo principal — livros gerais
+
 ```
-Usuário envia capa → Hecate (valida) → CoverAnalyzer (analisa visualmente)
-  → [opcional] TitlePageAnalyzer (lê folha de rosto)
-  → LoadRelevantMemory (consulta memórias anteriores)
-  → BookLookup (busca em Open Library, Google Books, Estante Virtual, Skoob)
-  → WriteMemory (salva resultado para uso futuro)
-  → Resposta formatada ao usuário
+Usuário envia capa
+  → ProfessorDetector (é obra do Professor?)
+      ↓ sim (high/medium confidence)         ↓ não
+  Confirmação do usuário              Hecate (valida capa)
+      ↓ confirmado                           ↓
+  KardoNavalhaWorkflow          CoverAnalyzer (analisa visualmente)
+      ↓                           → [opcional] TitlePageAnalyzer
+  Resultado catalográfico         → LoadRelevantMemory
+  + Meilisearch nilton_works      → BookLookup
+  + Enfileira Senhor scraping     → WriteMemory
+                                  → Resposta formatada
 ```
 
-Cada etapa é uma **skill** independente, orquestrada pelo `BookwormWorkflow`. As skills de visão usam **Gemini Flash**; a síntese de memória usa **GPT-4o** (via GitHub Copilot); Claude Sonnet/Opus está disponível como alternativa.
+### Agente Kardo Navalha — catálogo do Professor
+
+```
+ProfessorDetector → ProfessorClassifier → CoverAnalyzer
+  → ProfessorCataloger → WriteProfessorMemory
+  → Índice Meilisearch (nilton_works)
+  → Enfileira scraping via ARQ
+```
+
+### Agente Senhor das Horas Mortas — rastreador autônomo
+
+Executa diariamente às 03:00 UTC (e sob demanda após cada nova catalogação):
+
+```
+LoadScrapingState → PlanScraping → ExecuteWebMentions
+  → EnrichProfessorProfile → SaveScrapingState
+```
+
+O agente acumula estado entre sessões (`professor_scraping_state.json`) e enriquece progressivamente o perfil do Professor (`professor_profile.md`), que por sua vez alimenta o `ProfessorDetector` com novos marcadores de identidade descobertos.
+
+Cada etapa é uma **skill** independente, orquestrada pelo workflow correspondente. As skills de visão usam **Gemini Flash**; a síntese de memória usa **GPT-4o** (via GitHub Copilot); Claude Sonnet/Opus está disponível como alternativa.
 
 ______________________________________________________________________
 
@@ -23,6 +52,7 @@ ______________________________________________________________________
 
 - Python **3.13**
 - [Poetry](https://python-poetry.org/) para gerenciamento de dependências
+- **Redis** — para a fila ARQ do worker assíncrono
 - Chaves de API:
   - `GEMINI_API_KEY` — Google AI Studio
   - `ANTHROPIC_API_KEY` — Anthropic (opcional, para modelos Claude)
@@ -41,7 +71,7 @@ cd hallm9000
 poetry install
 ```
 
-2. Crie o arquivo `.env` na raiz do projeto com as variáveis abaixo:
+1. Crie o arquivo `.env` na raiz do projeto com as variáveis abaixo:
 
 ```env
 DEBUG=False
@@ -49,19 +79,36 @@ TELEGRAM_BOT_TOKEN=<token do @BotFather>
 GEMINI_API_KEY=<chave do Google AI Studio>
 ANTHROPIC_API_KEY=<chave da Anthropic>
 GITHUB_COPILOT_API_KEY=<chave do GitHub Models>
+REDIS_URL=redis://localhost:6379
+MEILISEARCH_URL=http://localhost:7700
+MEILISEARCH_API_KEY=dev-master-key
 ```
 
 ______________________________________________________________________
 
 ## Como executar
 
-### Bot Telegram
+### Docker Compose (recomendado)
+
+Sobe todos os serviços — bot, worker ARQ, Meilisearch, SeaweedFS e Redis:
+
+```bash
+docker compose up
+```
+
+### Bot Telegram (local)
 
 ```bash
 poetry run python -m melinoe.bot
 ```
 
-Inicie uma conversa com o bot e envie uma foto da capa do livro. O bot pedirá a folha de rosto em seguida — você pode pular essa etapa clicando no botão exibido.
+### Worker ARQ (local — necessário para o Senhor das Horas Mortas)
+
+```bash
+poetry run python -m arq melinoe.worker.WorkerSettings
+```
+
+O worker roda a cron diária às 03:00 UTC e também processa tarefas enfileiradas pelo Kardo Navalha após cada nova catalogação.
 
 ### Script CLI (processamento avulso)
 
@@ -83,12 +130,21 @@ hallm9000/
 │   ├── logger.py            # Loggers coloridos por camada
 │   ├── settings.py          # Variáveis de ambiente
 │   └── workflows/
-│       ├── base.py          # Classes abstratas Step e Workflow
-│       ├── bookworm.py      # Orquestrador principal
-│       ├── agents/          # Definições de agentes (.md)
-│       ├── memories/        # Base de conhecimento persistida (.md por livro)
-│       ├── skills/          # Skills individuais (Python + prompt .md)
-│       └── souls/           # Personas / system prompts (.md)
+│       ├── base.py               # Classes abstratas Step e Workflow
+│       ├── bookworm.py           # Orquestrador — livros gerais
+│       ├── kardo_navalha.py      # Orquestrador — obras do Professor
+│       ├── senhor_das_horas_mortas.py  # Orquestrador — scraper autônomo
+│       ├── agents/               # Definições de agentes (.md)
+│       ├── memories/             # Base de conhecimento persistida (.md por livro/perfil)
+│       ├── skills/               # Skills individuais (Python + prompt .md)
+│       └── souls/                # Personas / system prompts (.md)
+├── melinoe/
+│   ├── worker.py            # ARQ WorkerSettings + tarefas assíncronas
+│   ├── clients/
+│   │   ├── ai.py            # Abstração de LLM (litellm)
+│   │   ├── meilisearch.py   # Índices books + nilton_works
+│   │   ├── redis.py         # Pool ARQ
+│   │   └── seaweedfs.py     # Armazenamento de arquivos
 ├── scripts/
 │   └── cover_analyzer.py    # CLI de uso avulso
 ├── input/                   # Imagens de entrada (uso manual)
@@ -98,6 +154,8 @@ hallm9000/
 
 ### Skills disponíveis
 
+#### Fluxo BookwormWorkflow
+
 | Skill | Modelo | Responsabilidade |
 |---|---|---|
 | `HecateSkill` | Gemini Flash | Valida se a imagem é uma capa legível |
@@ -106,6 +164,25 @@ hallm9000/
 | `LoadRelevantMemorySkill` | GPT-4o | Filtra memórias anteriores relevantes ao livro atual |
 | `BookLookupSkill` | Gemini Flash | Agrega dados de múltiplas fontes e sintetiza os metadados |
 | `WriteMemorySkill` | GPT-4o | Persiste o resultado como entrada Markdown na base de memória |
+
+#### KardoNavalhaWorkflow — obras de Nilton Manoel
+
+| Skill | Modelo | Responsabilidade |
+|---|---|---|
+| `ProfessorDetectorSkill` | Gemini Flash | Detecta se a imagem é obra de Nilton Manoel |
+| `ProfessorClassifierSkill` | Gemini Flash | Classifica o tipo literário (trova, haicai, soneto…) |
+| `ProfessorCatalogerSkill` | GPT-4o | Produz o registro catalográfico completo |
+| `WriteProfessorMemorySkill` | GPT-4o | Persiste o registro como memória |
+
+#### SenhorDasHorasMortasWorkflow — rastreador autônomo
+
+| Skill | Modelo | Responsabilidade |
+|---|---|---|
+| `LoadScrapingStateSkill` | — | Carrega estado persistido da sessão anterior |
+| `PlanScrapingSkill` | GPT-4o | Planeja próximas URLs e queries de busca |
+| `ExecuteWebMentionsSkill` | Gemini Flash | Visita URLs e extrai menções confirmadas |
+| `EnrichProfessorProfileSkill` | GPT-4o | Atualiza `professor_profile.md` com novas descobertas |
+| `SaveScrapingStateSkill` | — | Persiste estado atualizado para a próxima sessão |
 
 ______________________________________________________________________
 

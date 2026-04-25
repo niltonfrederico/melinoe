@@ -16,6 +16,14 @@ services:
       - "7701:8080"
       - "8888:8888"
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
   bot:
     build: .
     command: poetry run watchfiles 'python -m melinoe.bot' melinoe/
@@ -31,9 +39,32 @@ services:
       SEAWEEDFS_PUBLIC_URL: ${SEAWEEDFS_PUBLIC_URL:-http://localhost:8888}
       MEILISEARCH_URL: http://meilisearch:7700
       MEILISEARCH_API_KEY: ${MEILISEARCH_API_KEY:-dev-master-key}
+      REDIS_URL: redis://redis:6379
     depends_on:
+      - meilisearch
+      - seaweedfs
+      - redis
+
+  worker:
+    build: .
+    command: poetry run python -m arq melinoe.worker.WorkerSettings
+    volumes:
+      - .:/app
+      - /app/.venv
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GITHUB_COPILOT_API_KEY: ${GITHUB_COPILOT_API_KEY:-}
+      SEAWEEDFS_FILER_URL: http://seaweedfs:8888
+      SEAWEEDFS_PUBLIC_URL: ${SEAWEEDFS_PUBLIC_URL:-http://localhost:8888}
+      MEILISEARCH_URL: http://meilisearch:7700
+      MEILISEARCH_API_KEY: ${MEILISEARCH_API_KEY:-dev-master-key}
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - redis
       - meilisearch
       - seaweedfs
 
 volumes:
   meilisearch_data:
+  redis_data:
