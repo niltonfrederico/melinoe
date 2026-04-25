@@ -6,8 +6,9 @@ from pathlib import Path
 from typing import Any
 from typing import ClassVar
 
+from melinoe.clients.ai import GEMINI_FLASH
 from melinoe.clients.ai import ModelConfig
-from melinoe.clients.ai import complete_json
+from melinoe.clients.ai import complete_json_with_fallback
 from melinoe.workflows.base import Step
 from melinoe.workflows.skills.load_scraping_state import ScrapingState
 from melinoe.workflows.skills.loader import load_skill
@@ -63,7 +64,7 @@ class PlanScrapingSkill(Step):
             {"role": "system", "content": _DEFINITION.system_prompt},
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
         ]
-        data = complete_json(self.model_config, messages)
+        data = complete_json_with_fallback(self.model_config, GEMINI_FLASH, messages)
 
         # Never revisit already-visited URLs
         visited = set(state.visited_urls)

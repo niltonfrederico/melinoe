@@ -113,17 +113,17 @@ class Step(ABC):
     def run(self, *args, **kwargs):
         """Validate inputs, execute, and return the result; logs timing on success and failure."""
         name = type(self).__name__
-        step_log.info(f"{name} starting...")
+        step_log.info("%s starting...", name)
         start = time.perf_counter()
         try:
             self.validate(*args, **kwargs)
             result = self.execute(*args, **kwargs)
         except Exception as exc:
             elapsed = time.perf_counter() - start
-            step_log.error(f"{name} failed after {elapsed:.2f}s — {exc}")
+            step_log.error("%s failed after %.2fs — %s", name, elapsed, exc)
             raise
         elapsed = time.perf_counter() - start
-        step_log.info(f"{name} done ({elapsed:.2f}s)")
+        step_log.info("%s done (%.2fs)", name, elapsed)
         return result
 
 

@@ -28,6 +28,7 @@ class ScrapingState:
     found_mentions: list[dict[str, Any]]
     stats: dict[str, Any]
     session_count: int
+    last_new_mention_at: str | None
 
 
 class LoadScrapingStateSkill(Step):
@@ -49,6 +50,7 @@ class LoadScrapingStateSkill(Step):
                 found_mentions=raw.get("found_mentions", []),
                 stats=raw.get("stats", {}),
                 session_count=raw.get("session_count", 0),
+                last_new_mention_at=raw.get("last_new_mention_at") or None,
             )
         return ScrapingState(
             visited_urls=[],
@@ -56,4 +58,5 @@ class LoadScrapingStateSkill(Step):
             found_mentions=[],
             stats={"total_mentions": 0, "total_urls_visited": 0, "total_sessions": 0},
             session_count=0,
+            last_new_mention_at=None,
         )

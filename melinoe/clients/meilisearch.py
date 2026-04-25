@@ -35,11 +35,11 @@ class MeilisearchClient:
 
     def index_book(self, document: dict[str, Any]) -> None:
         self._index.add_documents([document])
-        workflow_log.info(f"Meilisearch ← indexed '{document.get('title')}' (id={document.get('id')})")
+        workflow_log.info("Meilisearch ← indexed '%s' (id=%s)", document.get("title"), document.get("id"))
 
     def delete_book(self, book_id: str) -> None:
         self._index.delete_document(book_id)
-        workflow_log.info(f"Meilisearch ← deleted id={book_id}")
+        workflow_log.info("Meilisearch ← deleted id=%s", book_id)
 
     def _ensure_index(self) -> meilisearch.index.Index:
         try:
@@ -88,11 +88,11 @@ class NiltonWorksMeilisearchClient:
 
     def index_work(self, document: dict[str, Any]) -> None:
         self._index.add_documents([document])
-        workflow_log.info(f"Meilisearch/nilton_works ← indexed '{document.get('title')}' (id={document.get('id')})")
+        workflow_log.info("Meilisearch/nilton_works ← indexed '%s' (id=%s)", document.get("title"), document.get("id"))
 
     def delete_work(self, work_id: str) -> None:
         self._index.delete_document(work_id)
-        workflow_log.info(f"Meilisearch/nilton_works ← deleted id={work_id}")
+        workflow_log.info("Meilisearch/nilton_works ← deleted id=%s", work_id)
 
     def _ensure_index(self) -> meilisearch.index.Index:
         try:

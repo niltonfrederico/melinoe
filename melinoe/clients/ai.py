@@ -75,13 +75,13 @@ def complete(
     }
     if config.api_base is not None:
         call_kwargs["api_base"] = config.api_base
-    llm_log.info(f"Calling {config.model}...")
+    llm_log.info("Calling %s...", config.model)
     start = time.perf_counter()
     response = litellm.completion(**call_kwargs)
     elapsed = time.perf_counter() - start
     usage = getattr(response, "usage", None)
     tokens = f"{usage.total_tokens} tokens" if usage else "usage unavailable"
-    llm_log.info(f"{config.model} responded in {elapsed:.2f}s ({tokens})")
+    llm_log.info("%s responded in %.2fs (%s)", config.model, elapsed, tokens)
     return response
 
 
@@ -101,3 +101,17 @@ def complete_json(
     if not content:
         raise ValueError(f"Empty JSON response from {config.model}")
     return json.loads(content)
+
+
+def complete_json_with_fallback(
+    config: ModelConfig,
+    fallback: ModelConfig,
+    messages: list[dict[str, Any]],
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Like complete_json but retries once with *fallback* on RateLimitError."""
+    try:
+        return complete_json(config, messages, **kwargs)
+    except litellm.RateLimitError:
+        llm_log.warning("%s rate-limited — retrying with %s", config.model, fallback.model)
+        return complete_json(fallback, messages, **kwargs)

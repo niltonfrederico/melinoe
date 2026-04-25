@@ -2,6 +2,8 @@
 
 import json
 from dataclasses import dataclass
+from datetime import UTC
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from typing import ClassVar
@@ -64,9 +66,15 @@ class SaveScrapingStateSkill(Step):
                 "discovered_venues": m.discovered_venues,
                 "discovered_years": m.discovered_years,
                 "context_notes": m.context_notes,
+                "article_text": m.article_text,
             }
             for m in mentions_result.mentions
         ]
+
+        now_iso = datetime.now(tz=UTC).isoformat()
+        last_new_mention_at = state.last_new_mention_at
+        if new_mentions:
+            last_new_mention_at = now_iso
 
         updated_stats: dict[str, Any] = dict(state.stats)
         updated_stats["total_mentions"] = updated_stats.get("total_mentions", 0) + len(new_mentions)
@@ -79,6 +87,7 @@ class SaveScrapingStateSkill(Step):
             "found_mentions": state.found_mentions + new_mentions,
             "stats": updated_stats,
             "session_count": state.session_count + 1,
+            "last_new_mention_at": last_new_mention_at,
         }
 
         _MEMORY_DIR.mkdir(parents=True, exist_ok=True)

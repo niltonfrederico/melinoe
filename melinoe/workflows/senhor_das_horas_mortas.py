@@ -1,6 +1,8 @@
 """SenhorDasHorasMortasWorkflow: scraper autônomo que rastreia menções a Nilton Manoel na web."""
 
 import uuid
+from datetime import UTC
+from datetime import datetime
 from typing import Any
 
 from melinoe.logger import workflow_log
@@ -41,77 +43,110 @@ class SenhorDasHorasMortasWorkflow(Workflow):
 
     def run(self, trigger: str = "cron", batch_size: int = 10, **kwargs: Any) -> dict[str, Any]:
         session_id = str(uuid.uuid4())
-        workflow_log.info(f"SenhorDasHorasMortasWorkflow → session={session_id}, trigger={trigger}")
+        workflow_log.info("SenhorDasHorasMortasWorkflow → session=%s, trigger=%s", session_id, trigger)
 
         self._emit("Carregando estado anterior...")
         state = self._load_state.run()
         workflow_log.info(
-            f"State loaded: visited={len(state.visited_urls)}, "
-            f"pending={len(state.pending_urls)}, "
-            f"mentions={len(state.found_mentions)}, "
-            f"session={state.session_count}"
+            "State loaded: visited=%s, pending=%s, mentions=%s, session=%s",
+            len(state.visited_urls),
+            len(state.pending_urls),
+            len(state.found_mentions),
+            state.session_count,
         )
 
-        self._emit("Planejando próxima rota de pesquisa...")
-        plan = self._plan.run(state=state, trigger=trigger, batch_size=batch_size)
-        workflow_log.info(f"Plan ready: {len(plan.next_urls)} URLs, {len(plan.search_queries)} queries")
-        if plan.planning_notes:
-            workflow_log.info(f"Planning notes: {plan.planning_notes}")
+        # Stop if more than 24 h have passed since the last new mention AND the pending queue is empty.
+        # This means the daily cron ran, found nothing new, and there is nowhere left to look.
+        if not state.pending_urls and state.last_new_mention_at:
+            delta = datetime.now(tz=UTC) - datetime.fromisoformat(state.last_new_mention_at)
+            if delta.total_seconds() >= 86400:
+                workflow_log.info("No pending URLs and no new mention in the last 24 h — cataloging appears complete.")
+                return {
+                    "session_id": session_id,
+                    "urls_visited": 0,
+                    "new_mentions_found": 0,
+                    "profile_enriched": False,
+                    "pending_urls_remaining": 0,
+                    "summary": "Sem novos resultados há mais de 24 h. Catalogação possivelmente concluída.",
+                }
 
-        if not plan.next_urls:
-            workflow_log.info("No new URLs to visit — session complete")
-            return {
-                "session_id": session_id,
-                "urls_visited": 0,
-                "new_mentions_found": 0,
-                "profile_enriched": False,
-                "pending_urls_remaining": len(state.pending_urls),
-                "summary": "Nenhuma URL nova para visitar nesta sessão.",
-            }
+        total_visited = 0
+        total_mentions = 0
+        profile_enriched = False
+        all_discoveries: list[str] = []
+        iteration = 0
 
-        self._emit(f"Rastreando {len(plan.next_urls)} endereços...")
-        mentions_result = self._execute.run(plan=plan, state=state)
-        workflow_log.info(
-            f"Scraping done: visited={len(mentions_result.urls_visited)}, "
-            f"failed={len(mentions_result.urls_failed)}, "
-            f"mentions={len(mentions_result.mentions)}, "
-            f"discovered={len(mentions_result.newly_discovered_urls)}"
-        )
+        while True:
+            iteration += 1
+            workflow_log.info("Loop iteration %s: pending=%s", iteration, len(state.pending_urls))
 
-        self._emit("Atualizando perfil do Professor...")
-        enrichment = self._enrich.run(mentions_result=mentions_result)
-        if enrichment.profile_updated:
-            workflow_log.info(f"Profile enriched: {len(enrichment.new_discoveries)} new discoveries")
-            for discovery in enrichment.new_discoveries:
-                workflow_log.info(f"  ↳ {discovery}")
+            self._emit(f"Planejando rota de pesquisa (iteração {iteration})...")
+            plan = self._plan.run(state=state, trigger=trigger, batch_size=batch_size)
+            workflow_log.info("Plan ready: %s URLs, %s queries", len(plan.next_urls), len(plan.search_queries))
+            if plan.planning_notes:
+                workflow_log.info("Planning notes: %s", plan.planning_notes)
 
-        self._emit("Salvando progresso...")
-        saved = self._save_state.run(state=state, mentions_result=mentions_result)
-        workflow_log.info(
-            f"State saved: total_visited={saved.total_visited}, "
-            f"total_pending={saved.total_pending}, "
-            f"total_mentions={saved.total_mentions}"
-        )
+            if not plan.next_urls and not plan.search_queries:
+                workflow_log.info("No new URLs or queries — stopping loop")
+                break
+
+            self._emit(f"Rastreando {len(plan.next_urls)} endereços...")
+            mentions_result = self._execute.run(plan=plan, state=state)
+            workflow_log.info(
+                "Scraping done: visited=%s, failed=%s, mentions=%s, discovered=%s",
+                len(mentions_result.urls_visited),
+                len(mentions_result.urls_failed),
+                len(mentions_result.mentions),
+                len(mentions_result.newly_discovered_urls),
+            )
+
+            self._emit("Atualizando perfil do Professor...")
+            enrichment = self._enrich.run(mentions_result=mentions_result)
+            if enrichment.profile_updated:
+                profile_enriched = True
+                workflow_log.info("Profile enriched: %s new discoveries", len(enrichment.new_discoveries))
+                for discovery in enrichment.new_discoveries:
+                    workflow_log.info("  ↳ %s", discovery)
+
+            self._emit("Salvando progresso...")
+            saved = self._save_state.run(state=state, mentions_result=mentions_result)
+            workflow_log.info(
+                "State saved: total_visited=%s, total_pending=%s, total_mentions=%s",
+                saved.total_visited,
+                saved.total_pending,
+                saved.total_mentions,
+            )
+
+            total_visited += len(mentions_result.urls_visited)
+            total_mentions += len(mentions_result.mentions)
+            all_discoveries.extend(mentions_result.newly_discovered_urls)
+
+            # Reload state from disk so the next iteration sees the updated pending queue
+            state = self._load_state.run()
+
+            # Stop when there is nothing left to visit and DDG found no new URLs this iteration
+            if not state.pending_urls and not mentions_result.newly_discovered_urls:
+                workflow_log.info("Pending queue empty and no new discoveries — stopping loop")
+                break
 
         result: dict[str, Any] = {
             "session_id": session_id,
-            "urls_visited": len(mentions_result.urls_visited),
-            "new_mentions_found": len(mentions_result.mentions),
-            "profile_enriched": enrichment.profile_updated,
-            "new_discoveries": enrichment.new_discoveries,
-            "pending_urls_remaining": saved.total_pending,
-            "summary": self._build_summary(mentions_result, enrichment),
+            "urls_visited": total_visited,
+            "new_mentions_found": total_mentions,
+            "profile_enriched": profile_enriched,
+            "new_discoveries": list(dict.fromkeys(all_discoveries)),
+            "pending_urls_remaining": len(state.pending_urls),
+            "summary": self._build_summary(total_visited, total_mentions, profile_enriched),
         }
 
-        workflow_log.info(f"SenhorDasHorasMortasWorkflow complete → session={session_id}")
+        workflow_log.info("SenhorDasHorasMortasWorkflow complete → session=%s", session_id)
         return result
 
-    def _build_summary(self, mentions_result: Any, enrichment: Any) -> str:
+    def _build_summary(self, urls_visited: int, new_mentions: int, profile_enriched: bool) -> str:
         parts: list[str] = []
-        if mentions_result.mentions:
-            parts.append(f"{len(mentions_result.mentions)} menção(ões) encontrada(s)")
-        if enrichment.profile_updated:
-            parts.append(f"perfil atualizado com {len(enrichment.new_discoveries)} descoberta(s) nova(s)")
-        if mentions_result.urls_failed:
-            parts.append(f"{len(mentions_result.urls_failed)} URL(s) inacessível(is)")
+        if new_mentions:
+            parts.append(f"{new_mentions} menção(ões) encontrada(s)")
+        if profile_enriched:
+            parts.append("perfil atualizado")
+        parts.append(f"{urls_visited} URL(s) visitada(s)")
         return "; ".join(parts) if parts else "Sessão concluída sem novas descobertas."

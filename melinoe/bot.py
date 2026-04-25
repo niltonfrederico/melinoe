@@ -54,7 +54,7 @@ async def log_message(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> No
         return
     user = update.effective_user
     username = user.username if user else "unknown"
-    bot_log.info(f"[{username}] {update.message.text}")
+    bot_log.info("[%s] %s", username, update.message.text)
 
 
 async def handle_cover_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> object:
@@ -66,7 +66,7 @@ async def handle_cover_photo(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     user = update.effective_user
     username = user.username if user else "unknown"
-    bot_log.info(f"[{username}] cover photo received")
+    bot_log.info("[%s] cover photo received", username)
 
     await update.message.reply_text("Foto recebida! Deixa eu verificar se é uma capa de livro...")
 
@@ -79,7 +79,7 @@ async def handle_cover_photo(update: Update, context: ContextTypes.DEFAULT_TYPE)
     try:
         await tg_file.download_to_drive(tmp_path)
     except Exception as exc:
-        bot_log.error(f"Failed to download cover — {exc}")
+        bot_log.error("Failed to download cover — %s", exc)
         tmp_path.unlink(missing_ok=True)
         await update.message.reply_text("Não consegui baixar a foto. Por favor, tente novamente.")
         return ConversationHandler.END
@@ -187,7 +187,7 @@ async def handle_professor_confirmed(update: Update, context: ContextTypes.DEFAU
     except Exception as exc:
         user = update.effective_user
         username = user.username if user else "unknown"
-        bot_log.error(f"[{username}] KardoNavalhaWorkflow failed — {exc}")
+        bot_log.error("[%s] KardoNavalhaWorkflow failed — %s", username, exc)
         reply = "Não consegui catalogar este trabalho. Por favor, tente com uma foto mais nítida."
     else:
         if effective_message is not None:
@@ -239,7 +239,7 @@ async def handle_title_page_photo(update: Update, context: ContextTypes.DEFAULT_
     try:
         await tg_file.download_to_drive(title_page_path)
     except Exception as exc:
-        bot_log.error(f"Failed to download title page — {exc}")
+        bot_log.error("Failed to download title page — %s", exc)
         title_page_path.unlink(missing_ok=True)
         await update.message.reply_text("Não consegui baixar a foto. Por favor, tente novamente.")
         return _WAITING_TITLE_PAGE
@@ -396,7 +396,7 @@ async def _run_and_reply(
     except Exception as exc:
         user = update.effective_user
         username = user.username if user else "unknown"
-        bot_log.error(f"[{username}] BookwormWorkflow failed — {exc}")
+        bot_log.error("[%s] BookwormWorkflow failed — %s", username, exc)
         reply = "Desculpe, não consegui identificar o livro. Por favor, tente com uma foto mais nítida."
     else:
         if effective_message is not None:

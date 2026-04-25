@@ -27,7 +27,7 @@ class SeaweedFSClient:
         with httpx.Client(timeout=30) as client, path.open("rb") as f:
             response = client.put(upload_url, content=f.read(), headers={"Content-Type": content_type})
         response.raise_for_status()
-        workflow_log.info(f"SeaweedFS ← {remote_path} ({response.status_code})")
+        workflow_log.info("SeaweedFS ← %s (%s)", remote_path, response.status_code)
         return UploadResult(remote_path=remote_path, url=public_url)
 
 

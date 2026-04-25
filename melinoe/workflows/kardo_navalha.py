@@ -66,7 +66,7 @@ class KardoNavalhaWorkflow(Workflow):
         force_update: bool = False,
     ) -> dict[str, Any]:
         file_path = Path(file_path)
-        workflow_log.info(f"KardoNavalhaWorkflow → {file_path.name}")
+        workflow_log.info("KardoNavalhaWorkflow → %s", file_path.name)
 
         self._emit("Verificando autoria do Professor...")
         if detection is None:
@@ -76,7 +76,9 @@ class KardoNavalhaWorkflow(Workflow):
             raise ValueError(f"Image is not a Professor work: {detection.reason}")
 
         workflow_log.info(
-            f"Professor work confirmed — confidence={detection.confidence}, hint={detection.work_type_hint}"
+            "Professor work confirmed — confidence=%s, hint=%s",
+            detection.confidence,
+            detection.work_type_hint,
         )
 
         self._emit("Consultando memórias anteriores...")
@@ -88,7 +90,9 @@ class KardoNavalhaWorkflow(Workflow):
 
         self._emit("Classificando o tipo de obra...")
         classification = self._classifier.run(file_path)
-        workflow_log.info(f"Work classified: type={classification.work_type!r}, confidence={classification.confidence}")
+        workflow_log.info(
+            "Work classified: type=%r, confidence=%s", classification.work_type, classification.confidence
+        )
 
         self._emit("Catalogando o trabalho...")
         from melinoe.workflows.skills.cover_analyzer import CoverAnalyzerSkill
@@ -102,7 +106,7 @@ class KardoNavalhaWorkflow(Workflow):
             detection=asdict(detection),
             memory_context=memories.context or None,
         )
-        workflow_log.info(f"Catalog produced: title={catalog.title!r}, confidence={catalog.confidence}")
+        workflow_log.info("Catalog produced: title=%r, confidence=%s", catalog.title, catalog.confidence)
 
         result: dict[str, Any] = {
             "detection": asdict(detection),
@@ -121,7 +125,7 @@ class KardoNavalhaWorkflow(Workflow):
         self._emit("Enfileirando pesquisa do Senhor das Horas Mortas...")
         self._enqueue_scraping(result)
 
-        workflow_log.info(f"Output saved → {output_dir}")
+        workflow_log.info("Output saved → %s", output_dir)
         return result
 
     def _write_output(
@@ -162,7 +166,7 @@ class KardoNavalhaWorkflow(Workflow):
 
             asyncio.get_event_loop().run_until_complete(enqueue_scrape_task())
         except Exception as exc:
-            workflow_log.warning(f"Failed to enqueue scraping task — {exc}")
+            workflow_log.warning("Failed to enqueue scraping task — %s", exc)
 
     @staticmethod
     def _merged_confidence(a: str, b: str) -> str:

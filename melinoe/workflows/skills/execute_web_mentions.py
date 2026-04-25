@@ -1,14 +1,17 @@
 """ExecuteWebMentionsSkill: visita URLs, extrai conteúdo e analisa menções a Nilton Manoel."""
 
 import json
+import re
+import urllib.parse
 from dataclasses import dataclass
 from typing import Any
 from typing import ClassVar
 
 import httpx
 
+from melinoe.clients.ai import GEMINI_PRO
 from melinoe.clients.ai import ModelConfig
-from melinoe.clients.ai import complete_json
+from melinoe.clients.ai import complete_json_with_fallback
 from melinoe.workflows.base import Step
 from melinoe.workflows.skills.load_scraping_state import ScrapingState
 from melinoe.workflows.skills.loader import load_skill
@@ -19,6 +22,8 @@ _DEFINITION = load_skill("execute_web_mentions")
 _HEADERS = {"User-Agent": "melinoe-senhor-das-horas-mortas/0.1 (niltonfrederico@pm.me; catalogacao-literaria)"}
 _TIMEOUT = 15.0
 _MAX_CONTENT_CHARS = 8000  # cap page content to avoid exceeding context limits
+_DDG_URL = "https://html.duckduckgo.com/html/"
+_DDG_MAX_RESULTS = 10
 
 
 @dataclass
@@ -33,6 +38,7 @@ class WebMention:
     discovered_venues: list[str]
     discovered_years: list[int]
     context_notes: str | None
+    article_text: str | None = None
 
 
 @dataclass
@@ -74,6 +80,10 @@ class ExecuteWebMentionsSkill(Step):
                 else:
                     failed.append(url)
 
+            for query in plan.search_queries:
+                search_urls = self._search_duckduckgo(client, query)
+                all_discovered.extend(u for u in search_urls if u not in visited_set)
+
         return WebMentionsResult(
             mentions=all_mentions,
             newly_discovered_urls=list(dict.fromkeys(all_discovered)),  # deduplicate, preserve order
@@ -90,7 +100,31 @@ class ExecuteWebMentionsSkill(Step):
             return [], [], False
 
         mentions, discovered = self._analyze_content(url, content)
+        for mention in mentions:
+            if mention.source_type == "news":
+                mention.article_text = content
         return mentions, discovered, True
+
+    def _search_duckduckgo(self, client: httpx.Client, query: str) -> list[str]:
+        """Query DuckDuckGo HTML endpoint and return result URLs."""
+        try:
+            response = client.post(_DDG_URL, data={"q": query}, timeout=_TIMEOUT)
+            response.raise_for_status()
+        except Exception:
+            return []
+
+        raw_urls = re.findall(r'href="(/l/\?[^"]+|https?://[^"]+)"', response.text)
+        results: list[str] = []
+        for raw in raw_urls:
+            if raw.startswith("http"):
+                results.append(raw)
+            elif raw.startswith("/l/?"):
+                parsed = urllib.parse.parse_qs(urllib.parse.urlparse(raw).query)
+                if "uddg" in parsed:
+                    results.append(urllib.parse.unquote(parsed["uddg"][0]))
+            if len(results) >= _DDG_MAX_RESULTS:
+                break
+        return results
 
     def _extract_text(self, html: str) -> str:
         """Naive HTML tag stripper — removes tags and collapses whitespace."""
@@ -114,7 +148,7 @@ class ExecuteWebMentionsSkill(Step):
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
         ]
         try:
-            data = complete_json(self.model_config, messages)
+            data = complete_json_with_fallback(self.model_config, GEMINI_PRO, messages)
         except Exception:
             return [], []
 

@@ -16,11 +16,13 @@ async def scrape_task(ctx: dict[str, Any], trigger: str = "cron") -> dict[str, A
     """Run SenhorDasHorasMortasWorkflow — triggered by cron or by KardoNavalhaWorkflow."""
     from melinoe.workflows.senhor_das_horas_mortas import SenhorDasHorasMortasWorkflow
 
-    workflow_log.info(f"scrape_task started — trigger={trigger}")
+    workflow_log.info("scrape_task started — trigger=%s", trigger)
     wf = SenhorDasHorasMortasWorkflow()
     result = wf.run(trigger=trigger)
     workflow_log.info(
-        f"scrape_task complete — mentions={result.get('new_mentions_found')}, enriched={result.get('profile_enriched')}"
+        "scrape_task complete — mentions=%s, enriched=%s",
+        result.get("new_mentions_found"),
+        result.get("profile_enriched"),
     )
     return result
 
@@ -35,7 +37,7 @@ async def enqueue_scrape_task(trigger: str = "new_work") -> None:
     pool: ArqRedis = await get_redis_pool()
     await pool.enqueue_job("scrape_task", trigger)
     await pool.aclose()
-    workflow_log.info(f"scrape_task enqueued — trigger={trigger}")
+    workflow_log.info("scrape_task enqueued — trigger=%s", trigger)
 
 
 class WorkerSettings:
@@ -43,7 +45,6 @@ class WorkerSettings:
     redis_settings: ClassVar[RedisSettings] = get_redis_settings()
     # Run a full scraping session every day at 03:00 UTC (horas mortas)
     cron_jobs: ClassVar[list] = [
-        cron(scrape_cron, hour=3, minute=0),
+        cron(scrape_cron, hour=3, minute=0, run_at_startup=True),
     ]
     max_jobs: ClassVar[int] = 2
-    job_timeout: ClassVar[int] = 600  # 10 minutes max per scraping session

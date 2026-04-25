@@ -4,7 +4,7 @@ bot:
 	docker compose up bot
 
 worker:
-	poetry run python -m arq melinoe.worker.WorkerSettings
+	docker compose up worker
 
 qa:
 	poetry run pre-commit run --all-files

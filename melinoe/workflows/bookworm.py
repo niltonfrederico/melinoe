@@ -80,12 +80,12 @@ class BookwormWorkflow(Workflow):
     ) -> dict[str, Any]:
         file_path = Path(file_path)
         title_page_path = Path(title_page_path) if title_page_path is not None else None
-        workflow_log.info(f"BookwormWorkflow → {file_path.name}")
+        workflow_log.info("BookwormWorkflow → %s", file_path.name)
 
         self._emit("Verificando se é uma capa de livro...")
         check = self._hecate.run(file_path)
         if not check.is_book_cover or not check.is_legible:
-            workflow_log.info(f"Hecate rejected image — {check.reason}")
+            workflow_log.info("Hecate rejected image — %s", check.reason)
             raise NotABookCoverError(check.reason)
 
         self._emit("Analisando a capa do livro...")
@@ -111,7 +111,7 @@ class BookwormWorkflow(Workflow):
 
         if memories.relevant_keys:
             count = len(memories.relevant_keys)
-            workflow_log.info(f"Memories loaded: {count} relevant entr{'y' if count == 1 else 'ies'}")
+            workflow_log.info("Memories loaded: %s relevant entr%s", count, "y" if count == 1 else "ies")
             if not force_update:
                 raise BookAlreadyRegisteredError(memories.relevant_keys, cover.title, cover.author)
         else:
@@ -125,7 +125,7 @@ class BookwormWorkflow(Workflow):
             title_page_data=asdict(title_page) if title_page is not None else None,
         )
 
-        workflow_log.info(f"Metadata fetched: confidence={metadata.confidence}")
+        workflow_log.info("Metadata fetched: confidence=%s", metadata.confidence)
 
         metadata = self._enrich_compilation_title(metadata, cover.subtitle)
 
@@ -143,7 +143,7 @@ class BookwormWorkflow(Workflow):
         output_dir = self._write_output(result, cover.title, cover.author, file_path, title_page_path)
         result["output_dir"] = str(output_dir)
 
-        workflow_log.info(f"Output saved → {output_dir}")
+        workflow_log.info("Output saved → %s", output_dir)
         return result
 
     def _write_output(
