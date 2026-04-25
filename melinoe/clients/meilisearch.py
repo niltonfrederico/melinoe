@@ -43,6 +43,10 @@ class MeilisearchClient:
         self._index.delete_document(book_id)
         workflow_log.info("Meilisearch ← deleted id=%s", book_id)
 
+    def clear(self) -> None:
+        self._index.delete_all_documents()
+        workflow_log.info("Meilisearch ← cleared all documents from '%s'", self.INDEX_NAME)
+
     def _ensure_index(self) -> meilisearch.index.Index:
         try:
             self._client.create_index(self.INDEX_NAME, {"primaryKey": "id"})
@@ -95,6 +99,10 @@ class NiltonWorksMeilisearchClient:
     def delete_work(self, work_id: str) -> None:
         self._index.delete_document(work_id)
         workflow_log.info("Meilisearch/nilton_works ← deleted id=%s", work_id)
+
+    def clear(self) -> None:
+        self._index.delete_all_documents()
+        workflow_log.info("Meilisearch ← cleared all documents from '%s'", self.INDEX_NAME)
 
     def _ensure_index(self) -> meilisearch.index.Index:
         try:

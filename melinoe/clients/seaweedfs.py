@@ -30,6 +30,15 @@ class SeaweedFSClient:
         workflow_log.info("SeaweedFS ← %s (%s)", remote_path, response.status_code)
         return UploadResult(remote_path=remote_path, url=public_url)
 
+    def delete_directory(self, remote_path: str) -> None:
+        remote_path = remote_path.strip("/")
+        url = f"{self._filer_url}/{remote_path}"
+        with httpx.Client(timeout=30) as client:
+            response = client.delete(url, params={"recursive": "true", "ignoreRecursiveError": "true"})
+        if response.status_code not in (200, 204, 404):
+            response.raise_for_status()
+        workflow_log.info("SeaweedFS ← deleted directory /%s (%s)", remote_path, response.status_code)
+
 
 _MIME_TYPES: dict[str, str] = {
     ".jpg": "image/jpeg",

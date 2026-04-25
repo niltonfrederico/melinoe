@@ -10,6 +10,8 @@ import typer
 
 import melinoe.settings as settings
 from melinoe.clients.meilisearch import MeilisearchClient
+from melinoe.clients.meilisearch import NiltonWorksMeilisearchClient
+from melinoe.clients.seaweedfs import SeaweedFSClient
 from melinoe.workflows.bookworm import BookAlreadyRegisteredError
 from melinoe.workflows.bookworm import BookwormWorkflow
 from melinoe.workflows.bookworm import NotABookCoverError
@@ -213,6 +215,44 @@ def remove_book(
     client = MeilisearchClient(settings.MEILISEARCH_URL, settings.MEILISEARCH_API_KEY)
     client.delete_book(book_id)
     typer.echo(f"Removed: {book_id}")
+
+
+@app.command()
+def reset(
+    indexes: Annotated[bool, typer.Option("--indexes", help="Clear all Meilisearch indexes")] = False,
+    storage: Annotated[bool, typer.Option("--storage", help="Delete all SeaweedFS files")] = False,
+    all_: Annotated[bool, typer.Option("--all", help="Clear indexes and storage")] = False,
+) -> None:
+    """Wipe Meilisearch indexes and/or SeaweedFS storage. Only available when DEBUG=True."""
+    if not settings.DEBUG:
+        typer.echo("Error: reset is only available when DEBUG=True.", err=True)
+        raise typer.Exit(code=1)
+
+    flags_set = sum([indexes, storage, all_])
+    if flags_set == 0:
+        typer.echo("Error: specify one of --indexes, --storage, or --all.", err=True)
+        raise typer.Exit(code=1)
+    if flags_set > 1:
+        typer.echo("Error: --indexes, --storage, and --all are mutually exclusive.", err=True)
+        raise typer.Exit(code=1)
+
+    do_indexes = indexes or all_
+    do_storage = storage or all_
+
+    if do_indexes:
+        books_client = MeilisearchClient(settings.MEILISEARCH_URL, settings.MEILISEARCH_API_KEY)
+        books_client.clear()
+        typer.echo("Cleared index: books")
+
+        nilton_client = NiltonWorksMeilisearchClient(settings.MEILISEARCH_URL, settings.MEILISEARCH_API_KEY)
+        nilton_client.clear()
+        typer.echo("Cleared index: nilton_works")
+
+    if do_storage:
+        sfs = SeaweedFSClient(settings.SEAWEEDFS_FILER_URL, settings.SEAWEEDFS_PUBLIC_URL or None)
+        for directory in ("books", "professor"):
+            sfs.delete_directory(directory)
+            typer.echo(f"Deleted storage directory: /{directory}")
 
 
 if __name__ == "__main__":
