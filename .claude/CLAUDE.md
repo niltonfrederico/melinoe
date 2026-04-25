@@ -2,7 +2,7 @@
 
 ## What this project is
 
-Melinoe is a Telegram bot that identifies books from cover photos. It uses a pipeline of LLM-backed skills orchestrated by `BookwormWorkflow`. The name `hallm9000` is the repo slug; the Python package is `melinoe`.
+Melinoe is a Telegram bot that identifies books from cover photos. It uses a pipeline of LLM-backed skills orchestrated by `BookwormWorkflow`. The name `melinoe` is the repo slug; the Python package is `melinoe`.
 
 Melinoe also has two specialized agents for the literary work of **Nilton Manoel de Andrade Teixeira** (O Professor):
 

@@ -2,7 +2,7 @@
 
 ## Project overview
 
-Melinoe is a Telegram bot that identifies books from cover photos, orchestrated by `BookwormWorkflow`. The repo slug is `hallm9000`; the Python package is `melinoe`. Two specialist agents handle the literary works of Nilton Manoel de Andrade Teixeira (O Professor): `KardoNavalhaWorkflow` (physical cover cataloging → Meilisearch) and `SenhorDasHorasMortasWorkflow` (ARQ-scheduled web scraper).
+Melinoe is a Telegram bot that identifies books from cover photos, orchestrated by `BookwormWorkflow`. The repo slug is `melinoe`; the Python package is `melinoe`. Two specialist agents handle the literary works of Nilton Manoel de Andrade Teixeira (O Professor): `KardoNavalhaWorkflow` (physical cover cataloging → Meilisearch) and `SenhorDasHorasMortasWorkflow` (ARQ-scheduled web scraper).
 
 See [CLAUDE.md](../.claude/CLAUDE.md) for architecture details, agent guidelines, and project conventions.
 

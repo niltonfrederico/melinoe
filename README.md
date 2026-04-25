@@ -67,7 +67,7 @@ ______________________________________________________________________
 
 ```bash
 git clone <url-do-repositório>
-cd hallm9000
+cd melinoe
 poetry install
 ```
 
@@ -110,20 +110,32 @@ poetry run python -m arq melinoe.worker.WorkerSettings
 
 O worker roda a cron diária às 03:00 UTC e também processa tarefas enfileiradas pelo Kardo Navalha após cada nova catalogação.
 
-### Script CLI (processamento avulso)
+### Icarus — CLI
+
+Icarus é a interface de linha de comando do Melinoe. Todos os comandos aceitam `--help`.
 
 ```bash
-poetry run python scripts/cover_analyzer.py caminho/para/capa.jpg
+poetry run icarus <comando> [opções]
 ```
 
-O resultado é impresso no terminal e salvo em `output/<timestamp>-<autor>-<titulo>/result.json`.
+| Comando | Descrição | Opções notáveis |
+|---|---|---|
+| `book <capa>` | Analisa uma capa e registra o livro no Meilisearch | `--title-page`, `--force` |
+| `catalog-cover <capa>` | Cataloga uma capa como obra de Nilton Manoel | `--force` |
+| `catalog-web [url]` | Extrai menções de uma URL e cataloga obras encontradas | `--force` |
+| `scrape` | Executa o SenhorDasHorasMortasWorkflow manualmente | `--trigger cron\|new_work`, `--batch-size` |
+| `enrich [arquivo]` | Enriquece o perfil do Professor com informação manual (stdin se omitido) | `--source`, `--url` |
+| `remove-book <id>` | Remove um livro do Meilisearch pelo ID | — |
+| `reset` | Limpa índices e/ou storage (**apenas com `DEBUG=True`**) | `--indexes`, `--storage`, `--all` |
+
+O resultado de `book`, `catalog-cover` e `catalog-web` é impresso em JSON e salvo em `output/<timestamp>-<autor>-<titulo>/result.json`.
 
 ______________________________________________________________________
 
 ## Estrutura do projeto
 
 ```
-hallm9000/
+workspace/
 ├── melinoe/
 │   ├── bot.py               # Handlers do Telegram (máquina de estados)
 │   ├── logger.py            # Loggers coloridos por camada
@@ -148,6 +160,22 @@ hallm9000/
 ├── output/                  # Resultados gerados (JSON + imagens)
 └── pyproject.toml
 ```
+
+### Agentes
+
+| Agente | Modelo | Responsabilidade |
+|---|---|---|
+| `BookwormWorkflow` | Claude Sonnet | Orquestra análise de capa e busca bibliográfica para produzir um relatório unificado de livro |
+| `KardoNavalhaWorkflow` | GPT-4o | Cataloga obras de Nilton Manoel, classificando tipo literário e sintetizando metadados especializados |
+| `SenhorDasHorasMortasWorkflow` | Gemini Pro | Scraper autônomo que rastreia menções na web e enriquece o perfil do Professor progressivamente |
+
+### Almas (souls)
+
+| Alma | Modelo | Persona |
+|---|---|---|
+| `bibliophile` | Claude Sonnet | Bibliófilo apaixonado — crítico literário, designer de capas e cientista de bibliotecas em uma só voz |
+| `kardo_navalha` | GPT-4o | Guardião da obra de Nilton Manoel — arquivista apaixonado que cataloga com precisão e contexto literário |
+| `senhor_das_horas_mortas` | Gemini Pro | Cartógrafo das sombras — rastreador metódico e incansável da presença digital do Professor |
 
 ### Skills disponíveis
 
