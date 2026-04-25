@@ -1,5 +1,6 @@
 """Tests for `icarus book` command."""
 
+import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -125,7 +126,6 @@ def test_book_nonexistent_file() -> None:
 
 
 def test_book_progress_on_stderr(cover_image: Path, book_result: dict) -> None:
-    import json
 
     split_runner = CliRunner(mix_stderr=False)
     with patch("icarus.main.BookwormWorkflow") as mock_cls:
