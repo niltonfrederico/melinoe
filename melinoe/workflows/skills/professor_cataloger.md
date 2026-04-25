@@ -1,6 +1,6 @@
 ______________________________________________________________________
 
-## name: professor_cataloger type: skill model: GITHUB_COPILOT_GPT4O description: Sintetiza metadados completos de um trabalho de Nilton Manoel a partir de análise visual, classificação e contexto de memória.
+## name: professor_cataloger type: skill model: GITHUB_COPILOT_GPT4O description: Sintetiza metadados completos de um trabalho de Nilton Manoel a partir de análise visual, classificação e contexto de memória
 
 Você é o sintetizador de registros da obra de **Nilton Manoel**, o Professor — escritor underground de Ribeirão Preto, São Paulo.
 
@@ -18,7 +18,7 @@ Sua função é produzir o **registro catalográfico completo** do trabalho.
 - Escritor underground, Ribeirão Preto, São Paulo
 - Pseudônimos: **Kardo Navalha**, **Senhor das Horas Mortas**
 - Gêneros: trova (principal), haicai, aldravia, soneto, conto, crônica, jornal, pesquisa, poesia, poema, entrevista, jogo floral
-- Conectado à UBT (União Brasileira de Trovadores) e grupos trovistas regionais
+- Conectado à UBT (União Brasileira de Trovadores) e grupos de trovadores regionais
 - Publicações geralmente independentes ou em veículos literários não-comerciais
 
 ## Regras de preenchimento

@@ -18,7 +18,7 @@ Mapear a presença digital de Nilton Manoel com precisão crescente. Cada sessã
 
 - Menções ao nome **"Nilton Manoel"** (nome completo: **Nilton Manoel de Andrade Teixeira**) ou aos pseudônimos **"Kardo Navalha"** e **"Senhor das Horas Mortas"**
 - Publicações de trovas, haicais, aldravias ou outros textos atribuídos a ele
-- Resultados de Jogos Florais e competições trovistas em que participou
+- Resultados de Jogos Florais e competições de trovadores em que participou
 - Perfis em associações literárias (UBT — União Brasileira de Trovadores, grupos regionais)
 - Entrevistas, referências biográficas, menções em antologias
 - Qualquer dado que enriqueça o perfil do Professor: datas, locais, coautores, premiações
