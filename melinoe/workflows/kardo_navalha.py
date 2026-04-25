@@ -1,5 +1,6 @@
 """KardoNavalhaWorkflow: cataloga trabalhos de Nilton Manoel (O Professor)."""
 
+import asyncio
 import json
 import shutil
 from dataclasses import asdict
@@ -12,13 +13,17 @@ from melinoe.clients.meilisearch import NiltonWorksMeilisearchClient
 from melinoe.clients.meilisearch import build_professor_document
 from melinoe.clients.seaweedfs import SeaweedFSClient
 from melinoe.logger import workflow_log
+from melinoe.worker import enqueue_scrape_task
 from melinoe.workflows.base import Step
 from melinoe.workflows.base import Workflow
+from melinoe.workflows.base import merged_confidence
+from melinoe.workflows.skills.cover_analyzer import CoverAnalyzerSkill
 from melinoe.workflows.skills.load_relevant_memory import LoadRelevantMemorySkill
 from melinoe.workflows.skills.loader import load_agent
 from melinoe.workflows.skills.loader import load_soul
 from melinoe.workflows.skills.professor_cataloger import ProfessorCatalogerSkill
 from melinoe.workflows.skills.professor_classifier import ProfessorClassifierSkill
+from melinoe.workflows.skills.professor_classifier import ProfessorWorkClassification
 from melinoe.workflows.skills.professor_detector import ProfessorDetectionResult
 from melinoe.workflows.skills.professor_detector import ProfessorDetectorSkill
 from melinoe.workflows.skills.write_professor_memory import WriteProfessorMemorySkill
@@ -44,6 +49,7 @@ class KardoNavalhaWorkflow(Workflow):
         self._detector = ProfessorDetectorSkill()
         self._load_memory = LoadRelevantMemorySkill()
         self._classifier = ProfessorClassifierSkill()
+        self._cover_analyzer = CoverAnalyzerSkill()
         self._cataloger = ProfessorCatalogerSkill()
         self._write_memory = WriteProfessorMemorySkill()
         self.steps: list[Step] = [
@@ -61,10 +67,18 @@ class KardoNavalhaWorkflow(Workflow):
 
     def run(
         self,
-        file_path: Path | str,
+        file_path: Path | str | None = None,
+        work_text: str | None = None,
+        mention_metadata: dict[str, Any] | None = None,
         detection: ProfessorDetectionResult | None = None,
         force_update: bool = False,
     ) -> dict[str, Any]:
+        if work_text is not None:
+            return self._run_from_text(work_text, mention_metadata or {}, force_update)
+
+        if file_path is None:
+            raise ValueError("Either file_path or work_text must be provided")
+
         file_path = Path(file_path)
         workflow_log.info("KardoNavalhaWorkflow → %s", file_path.name)
 
@@ -95,10 +109,7 @@ class KardoNavalhaWorkflow(Workflow):
         )
 
         self._emit("Catalogando o trabalho...")
-        from melinoe.workflows.skills.cover_analyzer import CoverAnalyzerSkill
-
-        cover_analyzer = CoverAnalyzerSkill()
-        cover = cover_analyzer.run(file_path)
+        cover = self._cover_analyzer.run(file_path)
 
         catalog = self._cataloger.run(
             cover_analysis=asdict(cover),
@@ -113,7 +124,7 @@ class KardoNavalhaWorkflow(Workflow):
             "classification": asdict(classification),
             "cover_analysis": asdict(cover),
             "catalog": asdict(catalog),
-            "report_confidence": self._merged_confidence(detection.confidence, catalog.confidence),
+            "report_confidence": merged_confidence(detection.confidence, catalog.confidence),
         }
 
         self._emit("Salvando na memória...")
@@ -127,6 +138,98 @@ class KardoNavalhaWorkflow(Workflow):
 
         workflow_log.info("Output saved → %s", output_dir)
         return result
+
+    def _run_from_text(
+        self,
+        work_text: str,
+        mention_metadata: dict[str, Any],
+        force_update: bool,
+    ) -> dict[str, Any]:
+        workflow_log.info("KardoNavalhaWorkflow (text) → %s chars from %s", len(work_text), mention_metadata.get("url"))
+
+        detection = ProfessorDetectionResult(
+            is_professor_work=True,
+            confidence=mention_metadata.get("confidence", "medium"),
+            reason=f"Scraped from {mention_metadata.get('url', 'web')}",
+            work_type_hint=None,
+        )
+
+        self._emit("Consultando memórias anteriores...")
+        memories = self._load_memory.run(title=work_text[:80], author="Nilton Manoel")
+        if memories.relevant_keys and not force_update:
+            raise ProfessorWorkAlreadyRegisteredError(memories.relevant_keys, work_text[:80])
+
+        classification = ProfessorWorkClassification(
+            work_type=self._infer_work_type(work_text, mention_metadata),
+            literary_form=None,
+            is_collection=False,
+            collection_title=None,
+            estimated_work_count=None,
+            competition_name=self._extract_competition(mention_metadata),
+            confidence=mention_metadata.get("confidence", "medium"),
+            classification_notes="Classificado a partir de menção web — sem imagem de capa",
+        )
+
+        text_analysis: dict[str, Any] = {
+            "work_text": work_text,
+            "source_url": mention_metadata.get("url"),
+            "source_type": mention_metadata.get("source_type"),
+            "discovered_aliases": mention_metadata.get("discovered_aliases") or [],
+            "discovered_venues": mention_metadata.get("discovered_venues") or [],
+            "discovered_years": mention_metadata.get("discovered_years") or [],
+            "context_notes": mention_metadata.get("context_notes"),
+            "confidence": mention_metadata.get("confidence", "medium"),
+        }
+
+        self._emit("Catalogando o trabalho...")
+        catalog = self._cataloger.run(
+            cover_analysis=text_analysis,
+            classification=asdict(classification),
+            detection=asdict(detection),
+            memory_context=memories.context or None,
+        )
+        workflow_log.info("Catalog produced (text): title=%r, confidence=%s", catalog.title, catalog.confidence)
+
+        result: dict[str, Any] = {
+            "detection": asdict(detection),
+            "classification": asdict(classification),
+            "text_analysis": text_analysis,
+            "catalog": asdict(catalog),
+            "report_confidence": merged_confidence(detection.confidence, catalog.confidence),
+        }
+
+        self._emit("Salvando na memória...")
+        self._write_memory.run(report=result)
+
+        output_dir = self._write_output_text(result, catalog.title, catalog.work_type, work_text)
+        result["output_dir"] = str(output_dir)
+
+        workflow_log.info("Output saved (text) → %s", output_dir)
+        return result
+
+    def _write_output_text(
+        self,
+        result: dict[str, Any],
+        title: str | None,
+        work_type: str,
+        work_text: str,
+    ) -> Path:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        title_slug = (title or "sem-titulo").lower().replace(" ", "-")[:50]
+        work_type_slug = work_type.lower().replace(" ", "-")[:20]
+        folder_name = f"{timestamp}-professor-{work_type_slug}-{title_slug}"
+        output_dir = _OUTPUT_DIR / folder_name
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        (output_dir / "work.txt").write_text(work_text)
+
+        json_path = output_dir / "result.json"
+        json_path.write_text(json.dumps(result, indent=2, ensure_ascii=False))
+
+        meili = NiltonWorksMeilisearchClient(settings.MEILISEARCH_URL, settings.MEILISEARCH_API_KEY)
+        meili.index_work(build_professor_document(folder_name, result))
+
+        return output_dir
 
     def _write_output(
         self,
@@ -157,22 +260,26 @@ class KardoNavalhaWorkflow(Workflow):
 
         return output_dir
 
+    def _infer_work_type(self, work_text: str, mention_metadata: dict[str, Any]) -> str:
+        text_lower = work_text.lower()
+        if "haicai" in text_lower or "haiku" in text_lower:
+            return "haicai"
+        if "aldravia" in text_lower:
+            return "aldravia"
+        venues = " ".join(mention_metadata.get("discovered_venues") or []).lower()
+        if "trova" in venues or "trovador" in text_lower or "trova" in text_lower:
+            return "trova"
+        return "poema"
+
+    def _extract_competition(self, mention_metadata: dict[str, Any]) -> str | None:
+        for v in mention_metadata.get("discovered_venues") or []:
+            if any(kw in v.lower() for kw in ("jogo", "concurso", "floral")):
+                return v
+        return None
+
     def _enqueue_scraping(self, result: dict[str, Any]) -> None:
         """Fire-and-forget: enqueue a scraping task triggered by this new cataloged work."""
         try:
-            import asyncio
-
-            from melinoe.worker import enqueue_scrape_task
-
             asyncio.get_event_loop().run_until_complete(enqueue_scrape_task())
         except Exception as exc:
             workflow_log.warning("Failed to enqueue scraping task — %s", exc)
-
-    @staticmethod
-    def _merged_confidence(a: str, b: str) -> str:
-        order = {"high": 2, "medium": 1, "low": 0}
-        return (
-            "high"
-            if min(order.get(a, 0), order.get(b, 0)) == 2
-            else ("medium" if min(order.get(a, 0), order.get(b, 0)) == 1 else "low")
-        )

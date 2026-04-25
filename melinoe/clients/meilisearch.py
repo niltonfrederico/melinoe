@@ -4,6 +4,8 @@ import re
 from typing import Any
 
 import meilisearch
+import meilisearch.errors
+import meilisearch.index
 
 from melinoe.logger import workflow_log
 

@@ -1,6 +1,7 @@
 """SenhorDasHorasMortasWorkflow: scraper autônomo que rastreia menções a Nilton Manoel na web."""
 
 import uuid
+from dataclasses import asdict
 from datetime import UTC
 from datetime import datetime
 from typing import Any
@@ -8,8 +9,11 @@ from typing import Any
 from melinoe.logger import workflow_log
 from melinoe.workflows.base import Step
 from melinoe.workflows.base import Workflow
+from melinoe.workflows.kardo_navalha import KardoNavalhaWorkflow
+from melinoe.workflows.kardo_navalha import ProfessorWorkAlreadyRegisteredError
 from melinoe.workflows.skills.enrich_professor_profile import EnrichProfessorProfileSkill
 from melinoe.workflows.skills.execute_web_mentions import ExecuteWebMentionsSkill
+from melinoe.workflows.skills.execute_web_mentions import WebMention
 from melinoe.workflows.skills.load_scraping_state import LoadScrapingStateSkill
 from melinoe.workflows.skills.loader import load_agent
 from melinoe.workflows.skills.loader import load_soul
@@ -41,7 +45,7 @@ class SenhorDasHorasMortasWorkflow(Workflow):
     def system_prompt(self) -> str:
         return f"{self._soul_def.system_prompt}\n\n---\n\n{self._agent_def.system_prompt}"
 
-    def run(self, trigger: str = "cron", batch_size: int = 10, **kwargs: Any) -> dict[str, Any]:
+    def run(self, trigger: str = "cron", batch_size: int = 10) -> dict[str, Any]:
         session_id = str(uuid.uuid4())
         workflow_log.info("SenhorDasHorasMortasWorkflow → session=%s, trigger=%s", session_id, trigger)
 
@@ -72,6 +76,7 @@ class SenhorDasHorasMortasWorkflow(Workflow):
 
         total_visited = 0
         total_mentions = 0
+        total_works_saved = 0
         profile_enriched = False
         all_discoveries: list[str] = []
         iteration = 0
@@ -108,6 +113,11 @@ class SenhorDasHorasMortasWorkflow(Workflow):
                 for discovery in enrichment.new_discoveries:
                     workflow_log.info("  ↳ %s", discovery)
 
+            works_saved = self._catalog_found_works(mentions_result.mentions)
+            if works_saved:
+                workflow_log.info("Works cataloged this iteration: %s", works_saved)
+                total_works_saved += works_saved
+
             self._emit("Salvando progresso...")
             saved = self._save_state.run(state=state, mentions_result=mentions_result)
             workflow_log.info(
@@ -133,19 +143,47 @@ class SenhorDasHorasMortasWorkflow(Workflow):
             "session_id": session_id,
             "urls_visited": total_visited,
             "new_mentions_found": total_mentions,
+            "works_saved": total_works_saved,
             "profile_enriched": profile_enriched,
             "new_discoveries": list(dict.fromkeys(all_discoveries)),
             "pending_urls_remaining": len(state.pending_urls),
-            "summary": self._build_summary(total_visited, total_mentions, profile_enriched),
+            "summary": self._build_summary(total_visited, total_mentions, total_works_saved, profile_enriched),
         }
 
         workflow_log.info("SenhorDasHorasMortasWorkflow complete → session=%s", session_id)
         return result
 
-    def _build_summary(self, urls_visited: int, new_mentions: int, profile_enriched: bool) -> str:
+    def _catalog_found_works(self, mentions: list[WebMention]) -> int:
+        saved = 0
+        for mention in mentions:
+            if mention.confidence not in ("high", "medium"):
+                continue
+            snippet = mention.snippet or ""
+            # A work snippet typically has line breaks (poem structure) or a competition attribution
+            is_work_like = "\n" in snippet or bool(mention.discovered_venues)
+            if not is_work_like or len(snippet) < 30:
+                continue
+
+            try:
+                wf = KardoNavalhaWorkflow()
+                wf.run(
+                    work_text=snippet,
+                    mention_metadata=asdict(mention),
+                )
+                saved += 1
+                workflow_log.info("Work cataloged from %s", mention.url)
+            except ProfessorWorkAlreadyRegisteredError:
+                workflow_log.debug("Work already registered — skipping %s", mention.url)
+            except Exception as exc:
+                workflow_log.warning("Failed to catalog work from %s — %s", mention.url, exc)
+        return saved
+
+    def _build_summary(self, urls_visited: int, new_mentions: int, works_saved: int, profile_enriched: bool) -> str:
         parts: list[str] = []
         if new_mentions:
             parts.append(f"{new_mentions} menção(ões) encontrada(s)")
+        if works_saved:
+            parts.append(f"{works_saved} obra(s) catalogada(s)")
         if profile_enriched:
             parts.append("perfil atualizado")
         parts.append(f"{urls_visited} URL(s) visitada(s)")

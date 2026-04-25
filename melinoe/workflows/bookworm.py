@@ -17,6 +17,7 @@ from melinoe.clients.seaweedfs import SeaweedFSClient
 from melinoe.logger import workflow_log
 from melinoe.workflows.base import Step
 from melinoe.workflows.base import Workflow
+from melinoe.workflows.base import merged_confidence
 from melinoe.workflows.skills.book_lookup import BookLookupSkill
 from melinoe.workflows.skills.book_lookup import BookMetadata
 from melinoe.workflows.skills.cover_analyzer import CoverAnalyzerSkill
@@ -133,7 +134,7 @@ class BookwormWorkflow(Workflow):
             "cover_analysis": asdict(cover),
             "title_page_analysis": asdict(title_page) if title_page is not None else None,
             "bibliographic_metadata": asdict(metadata),
-            "report_confidence": self._merged_confidence(cover.confidence, metadata.confidence),
+            "report_confidence": merged_confidence(cover.confidence, metadata.confidence),
             "notes": memories.context or None,
         }
 
@@ -223,8 +224,3 @@ class BookwormWorkflow(Workflow):
             return metadata
 
         return dc_replace(metadata, title=f"{title} — {marker}")
-
-    def _merged_confidence(self, cover_conf: str, meta_conf: str) -> str:
-        order = {"high": 2, "medium": 1, "low": 0}
-        level = min(order.get(cover_conf, 0), order.get(meta_conf, 0))
-        return ["low", "medium", "high"][level]

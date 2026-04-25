@@ -15,7 +15,7 @@ from melinoe.clients.ai import ModelConfig
 from melinoe.clients.ai import complete_json
 from melinoe.logger import step_log
 
-_MEMORY_DIR = Path(__file__).parent / "memories"
+MEMORY_DIR = Path(__file__).parent / "memories"
 
 
 class Step(ABC):
@@ -27,7 +27,7 @@ class Step(ABC):
     model_config: ModelConfig
     skills: list[str]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._temp_files: list[Path] = []
         if not hasattr(type(self), "skills"):
             self.skills = []
@@ -65,7 +65,7 @@ class Step(ABC):
             p.unlink(missing_ok=True)
         self._temp_files.clear()
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.cleanup_temp_files()
 
     # --- image helpers ---
@@ -103,14 +103,14 @@ class Step(ABC):
     # --- lifecycle ---
 
     @abstractmethod
-    def validate(self, *args, **kwargs) -> None:
+    def validate(self, *args: Any, **kwargs: Any) -> None:
         pass
 
     @abstractmethod
-    def execute(self, *args, **kwargs):
+    def execute(self, *args: Any, **kwargs: Any) -> Any:
         pass
 
-    def run(self, *args, **kwargs):
+    def run(self, *args: Any, **kwargs: Any) -> Any:
         """Validate inputs, execute, and return the result; logs timing on success and failure."""
         name = type(self).__name__
         step_log.info("%s starting...", name)
@@ -149,15 +149,15 @@ class Workflow(ABC):
     # --- memory ---
 
     def load_memory(self, key: str) -> str | None:
-        path = _MEMORY_DIR / f"{key}.md"
+        path = MEMORY_DIR / f"{key}.md"
         return path.read_text() if path.exists() else None
 
     def save_memory(self, key: str, content: str) -> None:
-        _MEMORY_DIR.mkdir(parents=True, exist_ok=True)
-        (_MEMORY_DIR / f"{key}.md").write_text(content)
+        MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+        (MEMORY_DIR / f"{key}.md").write_text(content)
 
     def delete_memory(self, key: str) -> None:
-        (_MEMORY_DIR / f"{key}.md").unlink(missing_ok=True)
+        (MEMORY_DIR / f"{key}.md").unlink(missing_ok=True)
 
     # --- file I/O ---
 
@@ -171,5 +171,12 @@ class Workflow(ABC):
         return {str(p): self.load_file(p) for p in paths}
 
     @abstractmethod
-    def run(self, *args, **kwargs):
+    def run(self, *args: Any, **kwargs: Any) -> Any:
         pass
+
+
+def merged_confidence(a: str, b: str) -> str:
+    """Return the lower of two confidence strings ('high', 'medium', 'low')."""
+    order = {"high": 2, "medium": 1, "low": 0}
+    level = min(order.get(a, 0), order.get(b, 0))
+    return ["low", "medium", "high"][level]

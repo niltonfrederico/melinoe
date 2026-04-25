@@ -2,7 +2,6 @@
 
 import json
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 from typing import ClassVar
 
@@ -12,10 +11,9 @@ from melinoe.clients.ai import complete_json_with_fallback
 from melinoe.workflows.base import Step
 from melinoe.workflows.skills.load_scraping_state import ScrapingState
 from melinoe.workflows.skills.loader import load_skill
+from melinoe.workflows.skills.professor_detector import load_professor_profile
 
 _DEFINITION = load_skill("plan_scraping")
-_MEMORY_DIR = Path(__file__).parent.parent / "memories"
-_PROFESSOR_PROFILE_KEY = "professor_profile"
 _DEFAULT_BATCH_SIZE = 10
 
 
@@ -45,7 +43,7 @@ class PlanScrapingSkill(Step):
         batch_size: int = _DEFAULT_BATCH_SIZE,
         **kwargs: Any,
     ) -> ScrapingPlan:
-        profile = self._load_profile()
+        profile = load_professor_profile()
         payload: dict[str, Any] = {
             "state": {
                 "visited_urls_count": len(state.visited_urls),
@@ -78,7 +76,3 @@ class PlanScrapingSkill(Step):
             search_queries=data.get("search_queries") or [],
             planning_notes=data.get("planning_notes") or None,
         )
-
-    def _load_profile(self) -> str | None:
-        path = _MEMORY_DIR / f"{_PROFESSOR_PROFILE_KEY}.md"
-        return path.read_text() if path.exists() else None

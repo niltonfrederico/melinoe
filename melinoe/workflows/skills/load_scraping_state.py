@@ -2,15 +2,14 @@
 
 import json
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 from typing import ClassVar
 
 from melinoe.clients.ai import GEMINI_FLASH
 from melinoe.clients.ai import ModelConfig
+from melinoe.workflows.base import MEMORY_DIR
 from melinoe.workflows.base import Step
 
-_MEMORY_DIR = Path(__file__).parent.parent / "memories"
 _STATE_KEY = "professor_scraping_state"
 
 _SEED_URLS: list[str] = [
@@ -41,7 +40,7 @@ class LoadScrapingStateSkill(Step):
         pass
 
     def execute(self, **kwargs: Any) -> ScrapingState:
-        path = _MEMORY_DIR / f"{_STATE_KEY}.json"
+        path = MEMORY_DIR / f"{_STATE_KEY}.json"
         if path.exists():
             raw = json.loads(path.read_text())
             return ScrapingState(

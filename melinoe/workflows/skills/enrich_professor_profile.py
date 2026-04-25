@@ -2,20 +2,20 @@
 
 import json
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 from typing import ClassVar
 
 from melinoe.clients.ai import GEMINI_FLASH
 from melinoe.clients.ai import ModelConfig
 from melinoe.clients.ai import complete_json_with_fallback
+from melinoe.workflows.base import MEMORY_DIR
 from melinoe.workflows.base import Step
 from melinoe.workflows.skills.execute_web_mentions import WebMentionsResult
 from melinoe.workflows.skills.loader import load_skill
+from melinoe.workflows.skills.professor_detector import PROFESSOR_PROFILE_KEY
+from melinoe.workflows.skills.professor_detector import load_professor_profile
 
 _DEFINITION = load_skill("enrich_professor_profile")
-_MEMORY_DIR = Path(__file__).parent.parent / "memories"
-_PROFESSOR_PROFILE_KEY = "professor_profile"
 
 
 @dataclass
@@ -40,7 +40,7 @@ class EnrichProfessorProfileSkill(Step):
         if not mentions_result.mentions:
             return ProfileEnrichmentResult(profile_updated=False, new_discoveries=[])
 
-        existing_profile = self._load_profile()
+        existing_profile = load_professor_profile()
         mentions_data = [
             {
                 "url": m.url,
@@ -69,14 +69,10 @@ class EnrichProfessorProfileSkill(Step):
             return ProfileEnrichmentResult(profile_updated=False, new_discoveries=[])
 
         if data.get("profile_updated") and data.get("updated_profile"):
-            _MEMORY_DIR.mkdir(parents=True, exist_ok=True)
-            (_MEMORY_DIR / f"{_PROFESSOR_PROFILE_KEY}.md").write_text(data["updated_profile"])
+            MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+            (MEMORY_DIR / f"{PROFESSOR_PROFILE_KEY}.md").write_text(data["updated_profile"])
 
         return ProfileEnrichmentResult(
             profile_updated=bool(data.get("profile_updated", False)),
             new_discoveries=data.get("new_discoveries") or [],
         )
-
-    def _load_profile(self) -> str | None:
-        path = _MEMORY_DIR / f"{_PROFESSOR_PROFILE_KEY}.md"
-        return path.read_text() if path.exists() else None

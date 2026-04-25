@@ -9,11 +9,11 @@ from typing import ClassVar
 from melinoe.clients.ai import GEMINI_FLASH
 from melinoe.clients.ai import ModelConfig
 from melinoe.clients.ai import complete_json_with_fallback
+from melinoe.workflows.base import MEMORY_DIR
 from melinoe.workflows.base import Step
 from melinoe.workflows.skills.loader import load_skill
 
 _DEFINITION = load_skill("write_professor_memory")
-_MEMORY_DIR = Path(__file__).parent.parent / "memories"
 
 
 @dataclass
@@ -44,14 +44,14 @@ class WriteProfessorMemorySkill(Step):
 
         try:
             data = complete_json_with_fallback(self.model_config, GEMINI_FLASH, messages)
-        except (ValueError, Exception):
+        except Exception:
             data = {}
 
         memory_key: str = data.get("memory_key") or self._fallback_key(report)
         memory_content: str = data.get("memory_content") or json.dumps(report, indent=2, ensure_ascii=False)
 
-        _MEMORY_DIR.mkdir(parents=True, exist_ok=True)
-        memory_path = _MEMORY_DIR / f"{memory_key}.md"
+        MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+        memory_path = MEMORY_DIR / f"{memory_key}.md"
         memory_path.write_text(memory_content)
 
         return WrittenProfessorMemory(memory_key=memory_key, memory_path=memory_path)

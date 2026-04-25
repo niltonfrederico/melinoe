@@ -6,12 +6,17 @@ from typing import Any
 from typing import ClassVar
 
 from melinoe.clients.ai import ModelConfig
+from melinoe.workflows.base import MEMORY_DIR
 from melinoe.workflows.base import Step
 from melinoe.workflows.skills.loader import load_skill
 
 _DEFINITION = load_skill("professor_detector")
-_MEMORY_DIR = Path(__file__).parent.parent / "memories"
-_PROFESSOR_PROFILE_KEY = "professor_profile"
+PROFESSOR_PROFILE_KEY = "professor_profile"
+
+
+def load_professor_profile() -> str | None:
+    path = MEMORY_DIR / f"{PROFESSOR_PROFILE_KEY}.md"
+    return path.read_text() if path.exists() else None
 
 
 @dataclass
@@ -52,5 +57,4 @@ class ProfessorDetectorSkill(Step):
         )
 
     def _load_profile(self) -> str | None:
-        path = _MEMORY_DIR / f"{_PROFESSOR_PROFILE_KEY}.md"
-        return path.read_text() if path.exists() else None
+        return load_professor_profile()

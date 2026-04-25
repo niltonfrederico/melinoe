@@ -1,5 +1,6 @@
 """ARQ worker: defines async tasks and cron jobs for background processing."""
 
+from collections.abc import Callable
 from typing import Any
 from typing import ClassVar
 
@@ -41,10 +42,10 @@ async def enqueue_scrape_task(trigger: str = "new_work") -> None:
 
 
 class WorkerSettings:
-    functions: ClassVar[list] = [scrape_task, scrape_cron]
+    functions: ClassVar[list[Callable[..., Any]]] = [scrape_task, scrape_cron]
     redis_settings: ClassVar[RedisSettings] = get_redis_settings()
     # Run a full scraping session every day at 03:00 UTC (horas mortas)
-    cron_jobs: ClassVar[list] = [
+    cron_jobs: ClassVar[list[Any]] = [
         cron(scrape_cron, hour=3, minute=0, run_at_startup=True),
     ]
     max_jobs: ClassVar[int] = 2

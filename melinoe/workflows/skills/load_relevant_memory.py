@@ -2,18 +2,17 @@
 
 import json
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 from typing import ClassVar
 
 from melinoe.clients.ai import GEMINI_FLASH
 from melinoe.clients.ai import ModelConfig
 from melinoe.clients.ai import complete_json_with_fallback
+from melinoe.workflows.base import MEMORY_DIR
 from melinoe.workflows.base import Step
 from melinoe.workflows.skills.loader import load_skill
 
 _DEFINITION = load_skill("load_relevant_memory")
-_MEMORY_DIR = Path(__file__).parent.parent / "memories"
 
 
 @dataclass
@@ -51,7 +50,7 @@ class LoadRelevantMemorySkill(Step):
 
         try:
             data = complete_json_with_fallback(self.model_config, GEMINI_FLASH, messages)
-        except (ValueError, Exception):
+        except Exception:
             return RelevantMemories(relevant_keys=[], context="")
 
         return RelevantMemories(
@@ -60,10 +59,10 @@ class LoadRelevantMemorySkill(Step):
         )
 
     def _read_all_memories(self) -> list[dict[str, str]]:
-        if not _MEMORY_DIR.exists():
+        if not MEMORY_DIR.exists():
             return []
         entries = []
-        for path in sorted(_MEMORY_DIR.glob("*.md")):
+        for path in sorted(MEMORY_DIR.glob("*.md")):
             if path.name == ".gitkeep":
                 continue
             entries.append({"key": path.stem, "content": path.read_text()})

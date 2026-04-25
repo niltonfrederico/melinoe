@@ -4,17 +4,16 @@ import json
 from dataclasses import dataclass
 from datetime import UTC
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 from typing import ClassVar
 
 from melinoe.clients.ai import GEMINI_FLASH
 from melinoe.clients.ai import ModelConfig
+from melinoe.workflows.base import MEMORY_DIR
 from melinoe.workflows.base import Step
 from melinoe.workflows.skills.execute_web_mentions import WebMentionsResult
 from melinoe.workflows.skills.load_scraping_state import ScrapingState
 
-_MEMORY_DIR = Path(__file__).parent.parent / "memories"
 _STATE_KEY = "professor_scraping_state"
 
 
@@ -90,8 +89,8 @@ class SaveScrapingStateSkill(Step):
             "last_new_mention_at": last_new_mention_at,
         }
 
-        _MEMORY_DIR.mkdir(parents=True, exist_ok=True)
-        path = _MEMORY_DIR / f"{_STATE_KEY}.json"
+        MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+        path = MEMORY_DIR / f"{_STATE_KEY}.json"
         path.write_text(json.dumps(updated_state, indent=2, ensure_ascii=False))
 
         return SavedScrapingState(

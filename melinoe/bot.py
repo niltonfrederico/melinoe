@@ -39,8 +39,8 @@ _COVER_PATH_KEY = "cover_tmp_path"
 _TITLE_PAGE_PATH_KEY = "title_page_tmp_path"
 _PROFESSOR_DETECTION_KEY = "professor_detection"
 
-# list is invariant, so we need this explicit base type to satisfy ConversationHandler's signature
 _BotHandlers = list[BaseHandler[Update, ContextTypes.DEFAULT_TYPE, object]]
+_confidence_labels: dict[str, str] = {"high": "alta", "medium": "média", "low": "baixa"}
 
 
 async def start(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> object:
@@ -434,8 +434,6 @@ def _format_result(result: dict[str, Any]) -> str:
     awards = meta.get("awards") or []
     ratings: dict[str, Any] = meta.get("ratings") or {}
 
-    _confidence_labels = {"high": "alta", "medium": "média", "low": "baixa"}
-
     lines: list[str] = [f"*{title}*"]
 
     if author:
@@ -508,8 +506,6 @@ def _format_professor_result(result: dict[str, Any]) -> str:
     tags = catalog.get("tags") or []
     notes = catalog.get("notes")
 
-    _confidence_labels = {"high": "alta", "medium": "média", "low": "baixa"}
-
     lines: list[str] = [f"*{title}*"]
     lines.append("por Nilton Manoel (O Professor)")
 
@@ -563,13 +559,13 @@ def main() -> None:
         CallbackQueryHandler(handle_book_restart, pattern="^restart_book$"),
     ]
     fallback_handlers: _BotHandlers = [CommandHandler("start", start)]
-    states: dict[object, _BotHandlers] = {  # type: ignore[dict-item]
+    states: dict[object, _BotHandlers] = {
         _WAITING_PROFESSOR_CONFIRMATION: professor_confirmation_handlers,
         _WAITING_TITLE_PAGE: title_page_handlers,
         _WAITING_BOOK_CONFIRMATION: confirmation_handlers,
     }
 
-    conv_handler = ConversationHandler(  # type: ignore[invalid-argument-type]
+    conv_handler = ConversationHandler(
         entry_points=entry_points,
         states=states,
         fallbacks=fallback_handlers,
@@ -578,7 +574,7 @@ def main() -> None:
     )
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(conv_handler)  # type: ignore[invalid-argument-type]
+    app.add_handler(conv_handler)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, log_message))
     app.run_polling()
 
