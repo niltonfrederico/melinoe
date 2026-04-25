@@ -80,12 +80,38 @@ ______________________________________________________________________
 
 ## Code conventions
 
+### Imports
+
 - **No relative imports** — ruff enforces this; all imports must be absolute
 - **Single-line isort** — one import per line
-- **Type annotations everywhere** — use `ClassVar` for class-level attributes, `Any` only when unavoidable
+- **All imports at module top level** — never inside functions, methods, or conditional blocks
+- **Typing-only imports inside `TYPE_CHECKING`** — any symbol used only in annotations must live in an `if TYPE_CHECKING:` block
+
+```python
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from melinoe.workflows.base import Step
+```
+
+### Typing — strict
+
+- **Type annotations everywhere** — every parameter, return type, and class attribute
+- Use `ClassVar[T]` for class-level attributes
+- Use `X | Y` unions (Python 3.10+); never `Union[X, Y]` or `Optional[X]`
+- **Never use `Any`** — if `Any` appears necessary, stop and ask the user to clarify the intended type before proceeding
+- **Never use `# type: ignore`** — fix the underlying issue; if a suppression seems unavoidable, ask the user first
+- Parameterize all generic types: `list[str]`, `dict[str, int]`, not `list`, `dict`
+
+### Style
+
 - **No comments on obvious code** — only add a comment when the *why* is non-obvious
 - **No docstrings on trivial methods** — module-level docstrings are fine; skip them on short helpers
 - **Dataclasses for all structured data** — prefer `@dataclass` or `@dataclass(frozen=True)` over plain dicts for return types
+- Line length: 120 characters (ruff-enforced)
+- Two blank lines between top-level definitions; one blank line between methods
 
 ______________________________________________________________________
 

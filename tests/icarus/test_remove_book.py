@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
+import melinoe.settings as settings
 from icarus.main import app
 
 runner = CliRunner()
@@ -20,7 +21,6 @@ def test_remove_book_success() -> None:
 
 
 def test_remove_book_uses_settings() -> None:
-    import melinoe.settings as settings
 
     with patch("icarus.main.MeilisearchClient") as mock_cls:
         mock_cls.return_value.delete_book.return_value = None

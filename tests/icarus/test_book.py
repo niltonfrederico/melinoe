@@ -8,6 +8,8 @@ import pytest
 from typer.testing import CliRunner
 
 from icarus.main import app
+from melinoe.workflows.bookworm import BookAlreadyRegisteredError
+from melinoe.workflows.bookworm import NotABookCoverError
 
 runner = CliRunner()
 
@@ -68,8 +70,6 @@ def test_book_force_flag(cover_image: Path, book_result: dict) -> None:
 
 
 def test_book_not_a_cover(cover_image: Path) -> None:
-    from melinoe.workflows.bookworm import NotABookCoverError
-
     with patch("icarus.main.BookwormWorkflow") as mock_cls:
         mock_cls.return_value.run.side_effect = NotABookCoverError("blurry image")
         result = runner.invoke(app, ["book", str(cover_image)])
@@ -79,8 +79,6 @@ def test_book_not_a_cover(cover_image: Path) -> None:
 
 
 def test_book_already_registered(cover_image: Path) -> None:
-    from melinoe.workflows.bookworm import BookAlreadyRegisteredError
-
     with patch("icarus.main.BookwormWorkflow") as mock_cls:
         mock_cls.return_value.run.side_effect = BookAlreadyRegisteredError(
             memory_keys=["foo-bar"], title="Foo", author="Bar"
@@ -101,8 +99,6 @@ def test_book_already_registered_force_skips_error(cover_image: Path, book_resul
 
 
 def test_book_output_is_json(cover_image: Path, book_result: dict) -> None:
-    import json
-
     with patch("icarus.main.BookwormWorkflow") as mock_cls:
         mock_cls.return_value.run.return_value = book_result
         result = runner.invoke(app, ["book", str(cover_image)])

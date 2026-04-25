@@ -1,19 +1,21 @@
 """Tests for `icarus catalog-web` command."""
 
+import json
 from unittest.mock import patch
 
 import pytest
 from typer.testing import CliRunner
 
 from icarus.main import app
+from melinoe.workflows.kardo_navalha import ProfessorWorkAlreadyRegisteredError
+from melinoe.workflows.skills.execute_web_mentions import WebMention
+from melinoe.workflows.skills.execute_web_mentions import WebMentionsResult
 
 runner = CliRunner()
 
 
 @pytest.fixture()
-def web_mention():
-    from melinoe.workflows.skills.execute_web_mentions import WebMention
-
+def web_mention() -> WebMention:
     return WebMention(
         url="https://example.com/poem",
         snippet="Não há relógio que marque\na hora em que a saudade bate.",
@@ -27,9 +29,7 @@ def web_mention():
 
 
 @pytest.fixture()
-def mentions_result(web_mention):
-    from melinoe.workflows.skills.execute_web_mentions import WebMentionsResult
-
+def mentions_result(web_mention: WebMention) -> WebMentionsResult:
     return WebMentionsResult(
         mentions=[web_mention],
         newly_discovered_urls=[],
@@ -50,7 +50,7 @@ def catalog_result() -> dict:
     }
 
 
-def test_catalog_web_with_url(mentions_result, catalog_result: dict) -> None:
+def test_catalog_web_with_url(mentions_result: WebMentionsResult, catalog_result: dict) -> None:
     with (
         patch("icarus.main.ExecuteWebMentionsSkill") as mock_skill_cls,
         patch("icarus.main.KardoNavalhaWorkflow") as mock_wf_cls,
@@ -76,7 +76,7 @@ def test_catalog_web_no_url_uses_fallback(catalog_result: dict) -> None:
     assert call_kwargs["work_text"].startswith("Não há relógio")
 
 
-def test_catalog_web_force(mentions_result, catalog_result: dict) -> None:
+def test_catalog_web_force(mentions_result: WebMentionsResult, catalog_result: dict) -> None:
     with (
         patch("icarus.main.ExecuteWebMentionsSkill") as mock_skill_cls,
         patch("icarus.main.KardoNavalhaWorkflow") as mock_wf_cls,
@@ -90,9 +90,7 @@ def test_catalog_web_force(mentions_result, catalog_result: dict) -> None:
     assert call_kwargs["force_update"] is True
 
 
-def test_catalog_web_skip_already_registered(mentions_result) -> None:
-    from melinoe.workflows.kardo_navalha import ProfessorWorkAlreadyRegisteredError
-
+def test_catalog_web_skip_already_registered(mentions_result: WebMentionsResult) -> None:
     with (
         patch("icarus.main.ExecuteWebMentionsSkill") as mock_skill_cls,
         patch("icarus.main.KardoNavalhaWorkflow") as mock_wf_cls,
@@ -108,9 +106,6 @@ def test_catalog_web_skip_already_registered(mentions_result) -> None:
 
 
 def test_catalog_web_no_eligible_mentions() -> None:
-    from melinoe.workflows.skills.execute_web_mentions import WebMention
-    from melinoe.workflows.skills.execute_web_mentions import WebMentionsResult
-
     empty_result = WebMentionsResult(
         mentions=[
             WebMention(
@@ -136,9 +131,7 @@ def test_catalog_web_no_eligible_mentions() -> None:
     assert result.exit_code == 1
 
 
-def test_catalog_web_fetch_failure_warns(mentions_result, catalog_result: dict) -> None:
-    from melinoe.workflows.skills.execute_web_mentions import WebMentionsResult
-
+def test_catalog_web_fetch_failure_warns(mentions_result: WebMentionsResult, catalog_result: dict) -> None:
     failed_result = WebMentionsResult(
         mentions=mentions_result.mentions,
         newly_discovered_urls=[],
@@ -158,9 +151,7 @@ def test_catalog_web_fetch_failure_warns(mentions_result, catalog_result: dict) 
     assert "WARNING" in result.output
 
 
-def test_catalog_web_output_is_json(mentions_result, catalog_result: dict) -> None:
-    import json
-
+def test_catalog_web_output_is_json(mentions_result: WebMentionsResult, catalog_result: dict) -> None:
     split_runner = CliRunner(mix_stderr=False)
     with (
         patch("icarus.main.ExecuteWebMentionsSkill") as mock_skill_cls,

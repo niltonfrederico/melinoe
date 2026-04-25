@@ -8,21 +8,18 @@ import pytest
 from typer.testing import CliRunner
 
 from icarus.main import app
+from melinoe.workflows.skills.enrich_professor_profile import ProfileEnrichmentResult
 
 runner = CliRunner()
 
 
 @pytest.fixture()
-def enrichment_result():
-    from melinoe.workflows.skills.enrich_professor_profile import ProfileEnrichmentResult
-
+def enrichment_result() -> ProfileEnrichmentResult:
     return ProfileEnrichmentResult(profile_updated=True, new_discoveries=["Trovador desde 1980"])
 
 
 @pytest.fixture()
-def no_update_result():
-    from melinoe.workflows.skills.enrich_professor_profile import ProfileEnrichmentResult
-
+def no_update_result() -> ProfileEnrichmentResult:
     return ProfileEnrichmentResult(profile_updated=False, new_discoveries=[])
 
 

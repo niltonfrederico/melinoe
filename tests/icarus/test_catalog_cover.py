@@ -1,5 +1,6 @@
 """Tests for `icarus catalog-cover` command."""
 
+import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -7,6 +8,7 @@ import pytest
 from typer.testing import CliRunner
 
 from icarus.main import app
+from melinoe.workflows.kardo_navalha import ProfessorWorkAlreadyRegisteredError
 
 runner = CliRunner()
 
@@ -51,8 +53,6 @@ def test_catalog_cover_force(cover_image: Path, catalog_result: dict) -> None:
 
 
 def test_catalog_cover_already_registered(cover_image: Path) -> None:
-    from melinoe.workflows.kardo_navalha import ProfessorWorkAlreadyRegisteredError
-
     with patch("icarus.main.KardoNavalhaWorkflow") as mock_cls:
         mock_cls.return_value.run.side_effect = ProfessorWorkAlreadyRegisteredError(
             memory_keys=["professor-trova-x"], title="Trova X"
@@ -65,8 +65,6 @@ def test_catalog_cover_already_registered(cover_image: Path) -> None:
 
 
 def test_catalog_cover_output_is_json(cover_image: Path, catalog_result: dict) -> None:
-    import json
-
     with patch("icarus.main.KardoNavalhaWorkflow") as mock_cls:
         mock_cls.return_value.run.return_value = catalog_result
         result = runner.invoke(app, ["catalog-cover", str(cover_image)])
